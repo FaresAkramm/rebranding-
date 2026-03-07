@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>فريق المود</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Cairo',sans-serif;direction:rtl;background:linear-gradient(135deg,#0d0221 0%,#1a0533 40%,#0a192f 100%);min-height:100vh;color:#fff;}
+::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:#1e1b4b;}::-webkit-scrollbar-thumb{background:#6366f1;border-radius:3px;}
+.card{transition:transform .2s,box-shadow .2s;cursor:pointer;}
+.card:hover{transform:translateY(-5px);box-shadow:0 20px 40px rgba(0,0,0,.4);}
+.btn-h:hover{opacity:.85;}
+input,select,textarea{outline:none;font-family:'Cairo',sans-serif;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const{useState}=React;
+
+const INITIAL_ACCOUNTS=[
+  {id:1,name:"شيخ المندي",category:"مطاعم",avatar:"https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=200&q=80",coverImage:"https://images.unsplash.com/photo-1544025162-d76594e88fa8?w=600&q=80",description:"أشهر مطعم مندي في المنطقة، بنشتغل على صفحتهم منذ 2023",links:[{label:"فيسبوك",url:"https://facebook.com",icon:"📘"},{label:"إنستغرام",url:"https://instagram.com",icon:"📸"}],tags:["مطاعم","فود"],status:"نشط",joinedDate:"2023-01-15"},
+  {id:2,name:"ستايل ستور",category:"ملابس",avatar:"https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=200&q=80",coverImage:"https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?w=600&q=80",description:"متجر ملابس عصري، بنتولى التسويق والمودريشن الكامل",links:[{label:"إنستغرام",url:"https://instagram.com",icon:"📸"},{label:"سناب",url:"https://snapchat.com",icon:"👻"}],tags:["فاشون","شوبينج"],status:"نشط",joinedDate:"2023-06-01"},
+];
+const INITIAL_OFFERS=[
+  {id:1,accountId:1,title:"عرض رمضان 🌙",description:"خصم 30% على وجبة المندي الكبيرة طول الشهر",image:"https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80",link:"https://example.com",expiryDate:"2026-04-15",badge:"محدود"},
+  {id:2,accountId:2,title:"كولكشن الصيف 🌞",description:"أحدث تشكيلة صيف 2026 وصلت المتجر",image:"https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=500&q=80",link:"https://example.com",expiryDate:"2026-06-30",badge:"جديد"},
+];
+const ADMIN_PASS="admin123";
+const ALL_CATS=["كل شيء","مطاعم","ملابس","تقنية","صحة","تعليم","ترفيه","أخرى"];
+
+function daysLeft(d){if(!d)return null;return Math.ceil((new Date(d)-new Date())/86400000);}
+function isExpired(d){if(!d)return false;return new Date(d)<new Date();}
+
+const inp={width:"100%",padding:"0.65rem 1rem",borderRadius:10,border:"1px solid rgba(255,255,255,0.13)",background:"rgba(255,255,255,0.06)",color:"#fff",marginBottom:"0.7rem",direction:"rtl",fontSize:"0.9rem"};
+const sel={...inp,background:"#2d2a6e"};
+const aBtn=(v)=>({padding:"0.4rem 0.8rem",borderRadius:8,border:"none",cursor:"pointer",fontWeight:600,fontSize:"0.8rem",background:v==="danger"?"rgba(239,68,68,0.2)":"rgba(255,255,255,0.08)",color:v==="danger"?"#f87171":"#fff"});
+const pBtn={padding:"0.6rem 1.4rem",borderRadius:12,border:"none",cursor:"pointer",fontWeight:700,background:"linear-gradient(90deg,#c084fc,#60a5fa)",color:"#fff"};
+
+function AccCard({acc,onClick}){
+  return(
+    <div className="card" onClick={onClick} style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:16,overflow:"hidden"}}>
+      {acc.coverImage?<img src={acc.coverImage} style={{width:"100%",height:150,objectFit:"cover"}} alt=""/>:<div style={{height:80,background:"linear-gradient(135deg,rgba(192,132,252,0.3),rgba(96,165,250,0.3))"}}/>}
+      <div style={{padding:"1rem"}}>
+        <div style={{display:"flex",alignItems:"flex-end",gap:"0.8rem",marginTop:acc.coverImage?-28:0,marginBottom:"0.5rem"}}>
+          {acc.avatar&&<img src={acc.avatar} style={{width:52,height:52,borderRadius:"50%",border:"3px solid #c084fc",objectFit:"cover",flexShrink:0}} alt=""/>}
+          <div style={{display:"flex",alignItems:"center",gap:"0.4rem",paddingBottom:4}}>
+            <div style={{fontWeight:800,fontSize:"1rem"}}>{acc.name}</div>
+            <span style={{background:acc.status==="نشط"?"#10b981":"#6b7280",color:"#fff",padding:"0.15rem 0.5rem",borderRadius:999,fontSize:"0.68rem",fontWeight:700}}>{acc.status}</span>
+          </div>
+        </div>
+        <div style={{fontSize:"0.8rem",color:"rgba(255,255,255,0.5)",lineHeight:1.5,marginBottom:"0.7rem"}}>{acc.description}</div>
+        <div style={{marginBottom:"0.5rem"}}>{(acc.tags||[]).map(t=><span key={t} style={{display:"inline-block",padding:"0.15rem 0.5rem",borderRadius:999,fontSize:"0.68rem",fontWeight:700,background:"rgba(99,102,241,0.3)",color:"#a5b4fc",marginLeft:"0.3rem",marginBottom:"0.3rem"}}>{t}</span>)}</div>
+        <div>{(acc.links||[]).map(l=><a key={l.label} href={l.url} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{display:"inline-flex",alignItems:"center",gap:"0.25rem",padding:"0.25rem 0.65rem",borderRadius:999,fontSize:"0.75rem",fontWeight:700,background:"rgba(192,132,252,0.15)",border:"1px solid rgba(192,132,252,0.3)",color:"#c084fc",textDecoration:"none",marginLeft:"0.4rem",marginBottom:"0.3rem"}}>{l.icon} {l.label}</a>)}</div>
+      </div>
+    </div>
+  );
+}
+
+function OfferCard({offer,accName}){
+  const exp=isExpired(offer.expiryDate);const dl=daysLeft(offer.expiryDate);
+  return(
+    <div style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:14,overflow:"hidden"}}>
+      {exp&&<div style={{background:"#ef4444",textAlign:"center",padding:"0.3rem",fontSize:"0.73rem",fontWeight:700}}>⏰ انتهى هذا العرض</div>}
+      {offer.image&&<img src={offer.image} style={{width:"100%",height:140,objectFit:"cover"}} alt=""/>}
+      <div style={{padding:"1rem"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"0.4rem"}}>
+          <div style={{fontWeight:800}}>{offer.title}</div>
+          <span style={{background:"#f59e0b",color:"#fff",padding:"0.15rem 0.5rem",borderRadius:999,fontSize:"0.68rem",fontWeight:700}}>{offer.badge}</span>
+        </div>
+        {accName&&<div style={{fontSize:"0.75rem",color:"#c084fc",marginBottom:"0.4rem"}}>📌 {accName}</div>}
+        <div style={{fontSize:"0.82rem",color:"rgba(255,255,255,0.55)",lineHeight:1.5,marginBottom:"0.6rem"}}>{offer.description}</div>
+        {offer.expiryDate&&!exp&&<div style={{fontSize:"0.75rem",color:dl<3?"#fbbf24":"#34d399",marginBottom:"0.5rem"}}>⏳ باقي {dl} يوم</div>}
+        {offer.link&&<a href={offer.link} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:"0.25rem",padding:"0.3rem 0.8rem",borderRadius:999,fontSize:"0.78rem",fontWeight:700,background:"rgba(192,132,252,0.15)",border:"1px solid rgba(192,132,252,0.3)",color:"#c084fc",textDecoration:"none"}}>🔗 اعرف أكتر</a>}
+      </div>
+    </div>
+  );
+}
+
+function Tab({active,onClick,children}){
+  return <button onClick={onClick} style={{padding:"0.45rem 1.2rem",borderRadius:9,border:"none",cursor:"pointer",fontWeight:700,fontSize:"0.85rem",background:active?"rgba(192,132,252,0.25)":"transparent",color:active?"#c084fc":"rgba(255,255,255,0.4)"}}>{children}</button>;
+}
+
+function App(){
+  const[accounts,setAccounts]=useState(INITIAL_ACCOUNTS);
+  const[offers,setOffers]=useState(INITIAL_OFFERS);
+  const[view,setView]=useState("public");
+  const[adminUnlocked,setAdminUnlocked]=useState(false);
+  const[pass,setPass]=useState("");
+  const[passErr,setPassErr]=useState(false);
+  const[selAcc,setSelAcc]=useState(null);
+  const[filterCat,setFilterCat]=useState("كل شيء");
+  const[pubTab,setPubTab]=useState("accounts");
+  const[adminTab,setAdminTab]=useState("accounts");
+  const emptyAcc={name:"",category:"مطاعم",avatar:"",coverImage:"",description:"",tags:"",status:"نشط",joinedDate:""};
+  const emptyOffer={accountId:"",title:"",description:"",image:"",link:"",expiryDate:"",badge:"جديد"};
+  const[showAccForm,setShowAccForm]=useState(false);
+  const[showOfferForm,setShowOfferForm]=useState(false);
+  const[accForm,setAccForm]=useState(emptyAcc);
+  const[offerForm,setOfferForm]=useState(emptyOffer);
+  const[editAccId,setEditAccId]=useState(null);
+  const[editOfferId,setEditOfferId]=useState(null);
+  const[links,setLinks]=useState([{label:"",url:"",icon:""}]);
+
+  function tryAdmin(){if(pass===ADMIN_PASS){setAdminUnlocked(true);setView("admin");setPassErr(false);}else setPassErr(true);}
+  function openAccForm(acc=null){if(acc){setAccForm({...acc,tags:(acc.tags||[]).join(", ")});setLinks(acc.links?.length?acc.links:[{label:"",url:"",icon:""}]);setEditAccId(acc.id);}else{setAccForm(emptyAcc);setLinks([{label:"",url:"",icon:""}]);setEditAccId(null);}setShowAccForm(true);}
+  function saveAcc(){const obj={...accForm,id:editAccId||Date.now(),tags:accForm.tags.split(",").map(t=>t.trim()).filter(Boolean),links:links.filter(l=>l.label&&l.url)};if(editAccId)setAccounts(p=>p.map(a=>a.id===editAccId?obj:a));else setAccounts(p=>[...p,obj]);setShowAccForm(false);}
+  function openOfferForm(o=null){if(o){setOfferForm(o);setEditOfferId(o.id);}else{setOfferForm(emptyOffer);setEditOfferId(null);}setShowOfferForm(true);}
+  function saveOffer(){const obj={...offerForm,id:editOfferId||Date.now(),accountId:Number(offerForm.accountId)};if(editOfferId)setOffers(p=>p.map(o=>o.id===editOfferId?obj:o));else setOffers(p=>[...p,obj]);setShowOfferForm(false);}
+
+  const filteredAccounts=filterCat==="كل شيء"?accounts:accounts.filter(a=>a.category===filterCat);
+  const activeOffers=offers.filter(o=>!isExpired(o.expiryDate));
+
+  const navBtnStyle=(active)=>({padding:"0.4rem 1rem",borderRadius:999,border:"none",cursor:"pointer",fontWeight:700,fontSize:"0.82rem",background:active?"linear-gradient(90deg,#c084fc,#60a5fa)":"rgba(255,255,255,0.08)",color:"#fff"});
+  const tabBarStyle={display:"flex",background:"rgba(255,255,255,0.05)",borderRadius:12,padding:4,width:"fit-content",gap:0};
+  const modalStyle={position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:"1rem"};
+  const modalBoxStyle={background:"#1e1b4b",border:"1px solid rgba(192,132,252,0.3)",borderRadius:20,padding:"2rem",width:"100%",maxWidth:500,maxHeight:"88vh",overflowY:"auto"};
+
+  return(
+    <div style={{minHeight:"100vh"}}>
+      {/* NAV */}
+      <nav style={{background:"rgba(255,255,255,0.04)",backdropFilter:"blur(20px)",borderBottom:"1px solid rgba(255,255,255,0.08)",padding:"0 1.5rem",display:"flex",alignItems:"center",justifyContent:"space-between",height:60,position:"sticky",top:0,zIndex:50}}>
+        <div style={{fontWeight:900,fontSize:"1.3rem",background:"linear-gradient(90deg,#c084fc,#60a5fa)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>⚡ فريق المود</div>
+        <div style={{display:"flex",gap:"0.5rem"}}>
+          <button className="btn-h" onClick={()=>setView("public")} style={navBtnStyle(view==="public")}>🌐 الموقع</button>
+          {adminUnlocked?<button className="btn-h" onClick={()=>setView("admin")} style={navBtnStyle(view==="admin")}>🛠️ الإدارة</button>:<button className="btn-h" onClick={()=>setView("login")} style={navBtnStyle(view==="login")}>🔐 أدمن</button>}
+        </div>
+      </nav>
+
+      {/* PUBLIC */}
+      {view==="public"&&(
+        <div style={{maxWidth:1100,margin:"0 auto",padding:"2rem 1rem"}}>
+          <div style={{textAlign:"center",padding:"2.5rem 1rem 2rem"}}>
+            <div style={{fontSize:"2.8rem",fontWeight:900,background:"linear-gradient(90deg,#c084fc,#60a5fa,#34d399)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>فريق المود</div>
+            <div style={{color:"rgba(255,255,255,0.4)",marginTop:"0.4rem",fontSize:"0.9rem"}}>{accounts.length} أكونت · {activeOffers.length} عرض نشط</div>
+          </div>
+          <div style={{...tabBarStyle,margin:"0 auto 1.5rem"}}>
+            <Tab active={pubTab==="accounts"} onClick={()=>setPubTab("accounts")}>📁 الأكونتات</Tab>
+            <Tab active={pubTab==="offers"} onClick={()=>setPubTab("offers")}>🎁 العروض</Tab>
+          </div>
+          {pubTab==="accounts"&&(
+            <>
+              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginBottom:"1.5rem"}}>
+                {ALL_CATS.map(c=><button key={c} onClick={()=>setFilterCat(c)} style={{padding:"0.3rem 0.9rem",borderRadius:999,border:"none",cursor:"pointer",fontWeight:600,fontSize:"0.8rem",background:filterCat===c?"#c084fc":"rgba(255,255,255,0.07)",color:"#fff"}}>{c}</button>)}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:"1.2rem"}}>
+                {filteredAccounts.map(acc=><AccCard key={acc.id} acc={acc} onClick={()=>setSelAcc(acc)}/>)}
+              </div>
+            </>
+          )}
+          {pubTab==="offers"&&(
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:"1.2rem"}}>
+              {offers.map(o=><OfferCard key={o.id} offer={o} accName={accounts.find(a=>a.id===o.accountId)?.name}/>)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* LOGIN */}
+      {view==="login"&&(
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"80vh"}}>
+          <div style={{background:"#1e1b4b",border:"1px solid rgba(192,132,252,0.3)",borderRadius:20,padding:"2rem",width:"100%",maxWidth:380,textAlign:"center"}}>
+            <div style={{fontSize:"2.5rem",marginBottom:"0.5rem"}}>🔐</div>
+            <div style={{fontWeight:900,fontSize:"1.2rem",marginBottom:"1.5rem"}}>دخول الإدارة</div>
+            <input type="password" placeholder="كلمة المرور" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&tryAdmin()} style={{...inp,marginBottom:"0.7rem"}}/>
+            {passErr&&<div style={{color:"#f87171",marginBottom:"0.7rem",fontSize:"0.85rem"}}>❌ كلمة المرور غلط</div>}
+            <button className="btn-h" onClick={tryAdmin} style={{...pBtn,width:"100%",padding:"0.7rem"}}>دخول</button>
+            <button onClick={()=>setView("public")} style={{marginTop:"0.8rem",background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer",fontSize:"0.85rem"}}>رجوع</button>
+          </div>
+        </div>
+      )}
+
+      {/* ADMIN */}
+      {view==="admin"&&adminUnlocked&&(
+        <div style={{maxWidth:1000,margin:"0 auto",padding:"2rem 1rem"}}>
+          <div style={{fontWeight:900,fontSize:"1.5rem",marginBottom:"1.5rem"}}>🛠️ لوحة الإدارة</div>
+          <div style={{...tabBarStyle,marginBottom:"1.5rem"}}>
+            <Tab active={adminTab==="accounts"} onClick={()=>setAdminTab("accounts")}>📁 الأكونتات</Tab>
+            <Tab active={adminTab==="offers"} onClick={()=>setAdminTab("offers")}>🎁 العروض</Tab>
+          </div>
+          {adminTab==="accounts"&&(
+            <>
+              <button className="btn-h" onClick={()=>openAccForm()} style={{...pBtn,marginBottom:"1rem"}}>+ أضف أكونت جديد</button>
+              <div style={{display:"grid",gap:"0.8rem"}}>
+                {accounts.map(acc=>(
+                  <div key={acc.id} style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:14,display:"flex",alignItems:"center",gap:"1rem",padding:"1rem"}}>
+                    {acc.avatar&&<img src={acc.avatar} style={{width:50,height:50,borderRadius:"50%",objectFit:"cover"}} alt=""/>}
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:800}}>{acc.name}</div>
+                      <div style={{fontSize:"0.78rem",color:"rgba(255,255,255,0.45)"}}>{acc.category} · {acc.links?.length||0} لينكات</div>
+                    </div>
+                    <span style={{background:acc.status==="نشط"?"#10b981":"#6b7280",color:"#fff",padding:"0.2rem 0.6rem",borderRadius:999,fontSize:"0.72rem",fontWeight:700}}>{acc.status}</span>
+                    <button className="btn-h" onClick={()=>openAccForm(acc)} style={aBtn()}>✏️ تعديل</button>
+                    <button className="btn-h" onClick={()=>{if(window.confirm("تأكيد الحذف؟"))setAccounts(p=>p.filter(a=>a.id!==acc.id));}} style={aBtn("danger")}>🗑️</button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          {adminTab==="offers"&&(
+            <>
+              <button className="btn-h" onClick={()=>openOfferForm()} style={{...pBtn,marginBottom:"1rem"}}>+ أضف عرض جديد</button>
+              <div style={{display:"grid",gap:"0.8rem"}}>
+                {offers.map(o=>{
+                  const acc=accounts.find(a=>a.id===o.accountId);
+                  const exp=isExpired(o.expiryDate);const dl=daysLeft(o.expiryDate);
+                  return(
+                    <div key={o.id} style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:14,display:"flex",alignItems:"center",gap:"1rem",padding:"1rem"}}>
+                      {o.image&&<img src={o.image} style={{width:60,height:60,borderRadius:10,objectFit:"cover"}} alt=""/>}
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:800}}>{o.title}</div>
+                        <div style={{fontSize:"0.78rem",color:"#c084fc"}}>{acc?.name||"—"}</div>
+                        {o.expiryDate&&<div style={{fontSize:"0.75rem",color:exp?"#f87171":dl<3?"#fbbf24":"#34d399"}}>{exp?"✗ منتهي":`⏳ باقي ${dl} يوم`}</div>}
+                      </div>
+                      <button className="btn-h" onClick={()=>openOfferForm(o)} style={aBtn()}>✏️ تعديل</button>
+                      <button className="btn-h" onClick={()=>{if(window.confirm("تأكيد الحذف؟"))setOffers(p=>p.filter(x=>x.id!==o.id));}} style={aBtn("danger")}>🗑️</button>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ACCOUNT DETAIL MODAL */}
+      {selAcc&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:"1rem"}} onClick={()=>setSelAcc(null)}>
+          <div style={{background:"#1a0533",border:"1px solid rgba(192,132,252,0.3)",borderRadius:20,padding:"1.5rem",width:"100%",maxWidth:560,maxHeight:"85vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+            {selAcc.coverImage&&<img src={selAcc.coverImage} style={{width:"100%",height:180,objectFit:"cover",borderRadius:12,marginBottom:"1rem"}} alt=""/>}
+            <div style={{display:"flex",gap:"1rem",alignItems:"center",marginBottom:"1rem"}}>
+              {selAcc.avatar&&<img src={selAcc.avatar} style={{width:70,height:70,borderRadius:"50%",border:"3px solid #c084fc",objectFit:"cover"}} alt=""/>}
+              <div>
+                <div style={{fontSize:"1.4rem",fontWeight:900}}>{selAcc.name}</div>
+                <div style={{color:"rgba(255,255,255,0.45)",fontSize:"0.82rem"}}>{selAcc.category} · انضم {selAcc.joinedDate}</div>
+              </div>
+            </div>
+            <div style={{color:"rgba(255,255,255,0.65)",lineHeight:1.7,marginBottom:"1rem"}}>{selAcc.description}</div>
+            <div style={{marginBottom:"1rem"}}>
+              <div style={{fontWeight:700,marginBottom:"0.5rem"}}>🔗 اللينكات:</div>
+              {selAcc.links?.map(l=><a key={l.label} href={l.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:"0.3rem",padding:"0.3rem 0.8rem",borderRadius:999,fontSize:"0.78rem",fontWeight:700,background:"rgba(192,132,252,0.15)",border:"1px solid rgba(192,132,252,0.3)",color:"#c084fc",textDecoration:"none",marginLeft:"0.4rem",marginBottom:"0.4rem"}}>{l.icon} {l.label}</a>)}
+            </div>
+            {offers.filter(o=>o.accountId===selAcc.id).length>0&&(
+              <div>
+                <div style={{fontWeight:700,marginBottom:"0.8rem"}}>🎁 العروض:</div>
+                <div style={{display:"grid",gap:"0.8rem"}}>
+                  {offers.filter(o=>o.accountId===selAcc.id).map(o=><OfferCard key={o.id} offer={o}/>)}
+                </div>
+              </div>
+            )}
+            <div style={{textAlign:"center",marginTop:"1.5rem"}}>
+              <button onClick={()=>setSelAcc(null)} style={{padding:"0.5rem 2rem",borderRadius:12,border:"none",cursor:"pointer",fontWeight:700,background:"rgba(255,255,255,0.1)",color:"#fff"}}>إغلاق</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ACCOUNT FORM */}
+      {showAccForm&&(
+        <div style={modalStyle}>
+          <div style={modalBoxStyle}>
+            <div style={{fontWeight:900,fontSize:"1.2rem",marginBottom:"1.2rem"}}>{editAccId?"✏️ تعديل الأكونت":"➕ أكونت جديد"}</div>
+            {[["name","اسم الأكونت","مثال: شيخ المندي"],["avatar","صورة البروفايل (رابط)","https://..."],["coverImage","صورة الغلاف (رابط)","https://..."],["tags","التاجات (مفصولة بفاصلة)","مطاعم, فود"]].map(([k,label,ph])=>(
+              <div key={k}>
+                <label style={{fontSize:"0.8rem",color:"rgba(255,255,255,0.5)",display:"block",marginBottom:"0.25rem"}}>{label}</label>
+                <input placeholder={ph} value={accForm[k]} onChange={e=>setAccForm({...accForm,[k]:e.target.value})} style={inp}/>
+              </div>
+            ))}
+            <label style={{fontSize:"0.8rem",color:"rgba(255,255,255,0.5)",display:"block",marginBottom:"0.25rem"}}>الفئة</label>
+            <select value={accForm.category} onChange={e=>setAccForm({...accForm,category:e.target.value})} style={sel}>
+              {["مطاعم","ملابس","تقنية","صحة","تعليم","ترفيه","أخرى"].map(c=><option key={c}>{c}</option>)}
+            </select>
+            <label style={{fontSize:"0.8rem",color:"rgba(255,255,255,0.5)",display:"block",marginBottom:"0.25rem"}}>الوصف</label>
+            <textarea value={accForm.description} onChange={e=>setAccForm({...accForm,description:e.target.value})} style={{...inp,minHeight:70,resize:"vertical"}}/>
+            <label style={{fontSize:"0.8rem",color:"rgba(255,255,255,0.5)",display:"block",marginBottom:"0.25rem"}}>الحالة</label>
+            <select value={accForm.status} onChange={e=>setAccForm({...accForm,status:e.target.value})} style={sel}>
+              <option>نشط</option><option>متوقف</option>
+            </select>
+            <label style={{fontSize:"0.8rem",color:"rgba(255,255,255,0.5)",display:"block",marginBottom:"0.25rem"}}>تاريخ الانضمام</label>
+            <input type="date" value={accForm.joinedDate} onChange={e=>setAccForm({...accForm,joinedDate:e.target.value})} style={{...inp,marginBottom:"0.9rem"}}/>
+            <div style={{fontWeight:700,marginBottom:"0.6rem"}}>🔗 اللينكات</div>
+            {links.map((l,i)=>(
+              <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 2fr 50px",gap:"0.4rem",marginBottom:"0.4rem"}}>
+                {["label","url","icon"].map(k=><input key={k} placeholder={k==="label"?"الاسم":k==="url"?"الرابط":"أيقون"} value={l[k]} onChange={e=>{const n=[...links];n[i][k]=e.target.value;setLinks(n);}} style={{padding:"0.5rem 0.7rem",borderRadius:8,border:"1px solid rgba(255,255,255,0.13)",background:"rgba(255,255,255,0.06)",color:"#fff",direction:"rtl"}}/>)}
+              </div>
+            ))}
+            <button onClick={()=>setLinks([...links,{label:"",url:"",icon:""}])} style={{padding:"0.35rem 0.9rem",borderRadius:8,border:"none",cursor:"pointer",fontWeight:600,fontSize:"0.8rem",background:"rgba(255,255,255,0.08)",color:"#fff",marginBottom:"1rem"}}>+ أضف لينك</button>
+            <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
+              <button onClick={()=>setShowAccForm(false)} style={{padding:"0.6rem 1.2rem",borderRadius:10,border:"none",cursor:"pointer",fontWeight:700,background:"rgba(255,255,255,0.08)",color:"#fff"}}>إلغاء</button>
+              <button className="btn-h" onClick={saveAcc} style={pBtn}>💾 حفظ</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* OFFER FORM */}
+      {showOfferForm&&(
+        <div style={modalStyle}>
+          <div style={{...modalBoxStyle,maxWidth:460}}>
+            <div style={{fontWeight:900,fontSize:"1.2rem",marginBottom:"1.2rem"}}>{editOfferId?"✏️ تعديل العرض":"➕ عرض جديد"}</div>
+            <label style={{fontSize:"0.8rem",color:"rgba(255,255,255,0.5)",display:"block",marginBottom:"0.25rem"}}>الأكونت</label>
+            <select value={offerForm.accountId} onChange={e=>setOfferForm({...offerForm,accountId:e.target.value})} style={sel}>
+              <option value="">اختر أكونت</option>
+              {accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+            {[["title","عنوان العرض","text","مثال: عرض رمضان 🌙"],["image","صورة العرض (رابط)","text","https://..."],["link","رابط العرض","text","https://..."],["expiryDate","تاريخ الانتهاء","date",""],["badge","الباج","text","جديد، محدود، مؤقت"]].map(([k,label,type,ph])=>(
+              <div key={k}>
+                <label style={{fontSize:"0.8rem",color:"rgba(255,255,255,0.5)",display:"block",marginBottom:"0.25rem"}}>{label}</label>
+                <input type={type} placeholder={ph} value={offerForm[k]} onChange={e=>setOfferForm({...offerForm,[k]:e.target.value})} style={inp}/>
+              </div>
+            ))}
+            <label style={{fontSize:"0.8rem",color:"rgba(255,255,255,0.5)",display:"block",marginBottom:"0.25rem"}}>الوصف</label>
+            <textarea value={offerForm.description} onChange={e=>setOfferForm({...offerForm,description:e.target.value})} style={{...inp,minHeight:70,resize:"vertical"}}/>
+            <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
+              <button onClick={()=>setShowOfferForm(false)} style={{padding:"0.6rem 1.2rem",borderRadius:10,border:"none",cursor:"pointer",fontWeight:700,background:"rgba(255,255,255,0.08)",color:"#fff"}}>إلغاء</button>
+              <button className="btn-h" onClick={saveOffer} style={pBtn}>💾 حفظ</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
