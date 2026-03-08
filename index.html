@@ -626,6 +626,7 @@ function App(){
     setSelA(null);
     history.pushState("","",window.location.pathname+window.location.search);
   }
+  function openAF(a=null){
     if(a){setAf({...a,tags:(a.tags||[]).join(", "),fixedReply:a.fixedReply||"",timesReply:a.timesReply||"",contactReply:a.contactReply||"",galleryImages:a.galleryImages||[]});setLnks(a.links?.length?a.links:[{label:"",url:"",icon:""}]);setEAid(a.id);}
     else{setAf(EA);setLnks([{label:"",url:"",icon:""}]);setEAid(null);}
     setShowAF(true);
