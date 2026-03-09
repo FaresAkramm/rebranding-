@@ -222,6 +222,29 @@ input,select,textarea{outline:none;font-family:'Cairo',sans-serif;-webkit-appear
 /* ── Scroll indicator ── */
 @keyframes scrollBounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(6px)}}
 .scroll-indicator{position:absolute;bottom:1.8rem;left:50%;transform:translateX(-50%);animation:scrollBounce 1.8s ease-in-out infinite;color:rgba(212,165,116,.3);font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;white-space:nowrap;}
+
+/* ── AI Bot ── */
+@keyframes typingDot{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+.tdot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--hl);margin:0 2px;animation:typingDot 1s ease-in-out infinite;}
+.tdot:nth-child(2){animation-delay:.18s;}.tdot:nth-child(3){animation-delay:.36s;}
+.bot-fab{position:fixed;bottom:calc(1.4rem + var(--safe-bottom));left:1.4rem;z-index:160;width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,#d4a574,#b8915f);border:none;color:#0a0a0a;font-size:1.35rem;box-shadow:0 4px 22px rgba(212,165,116,.45);transition:all .22s;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.bot-fab:hover{transform:scale(1.09);box-shadow:0 6px 30px rgba(212,165,116,.55);}
+.bot-window{position:fixed;bottom:calc(4.8rem + var(--safe-bottom));left:1.4rem;z-index:160;width:calc(100vw - 2.8rem);max-width:420px;background:#0d0d0d;border:1px solid rgba(212,165,116,.25);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.75);animation:slideUp .22s ease;overflow:hidden;display:flex;flex-direction:column;max-height:72vh;}
+.bot-head{display:flex;align-items:center;gap:.6rem;padding:.7rem 1rem;background:rgba(212,165,116,.05);border-bottom:1px solid rgba(255,255,255,.05);flex-shrink:0;}
+.bot-msgs{flex:1;overflow-y:auto;padding:.8rem 1rem;display:flex;flex-direction:column;gap:.55rem;}
+.bot-bubble-user{align-self:flex-start;background:rgba(212,165,116,.12);border:1px solid rgba(212,165,116,.2);color:var(--text);padding:.48rem .8rem;border-radius:12px 12px 4px 12px;font-size:.82rem;max-width:88%;line-height:1.58;font-family:'Cairo',sans-serif;}
+.bot-bubble-ai{align-self:flex-end;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:var(--text);padding:.48rem .8rem;border-radius:12px 12px 12px 4px;font-size:.82rem;max-width:92%;line-height:1.65;white-space:pre-wrap;font-family:'Cairo',sans-serif;}
+.bot-inp-row{display:flex;gap:.45rem;padding:.6rem .8rem;border-top:1px solid rgba(255,255,255,.05);flex-shrink:0;}
+.bot-inp{flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:var(--text);border-radius:9px;padding:.42rem .75rem;font-family:'Cairo',sans-serif;font-size:.82rem;direction:rtl;min-height:38px;transition:border-color .18s;}
+.bot-inp:focus{border-color:rgba(212,165,116,.4);outline:none;}
+.bot-send{background:var(--hl);color:#0a0a0a;border:none;border-radius:9px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer;transition:all .18s;flex-shrink:0;}
+.bot-send:hover{background:var(--hld);}
+.bot-send:disabled{opacity:.35;cursor:default;}
+.acc-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.22rem .6rem;border-radius:20px;border:1px solid rgba(212,165,116,.25);background:rgba(212,165,116,.07);color:var(--hl);font-size:.72rem;font-weight:600;cursor:pointer;transition:all .18s;font-family:'Cairo',sans-serif;margin:.18rem;}
+.acc-chip:hover{background:rgba(212,165,116,.16);border-color:var(--hl);}
+/* Train modal */
+.train-modal{background:#0f0f0f;border:1px solid rgba(212,165,116,.2);border-radius:14px;padding:1.4rem;width:100%;max-width:540px;max-height:88vh;overflow-y:auto;}
+.train-qa{background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:8px;padding:.75rem;margin-bottom:.5rem;}
 /* ── Responsive ── */
 @media(max-width:640px){
   .hide-mobile{display:none!important;}
@@ -342,6 +365,7 @@ async function downloadAllAsZip(urls,accName,setZipping){
   setZipping(false);
 }
 const CLD_CLOUD="diepkkeyu",CLD_PRESET="rebranding";
+const GROQ_KEY="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";
 async function uploadToCloudinary(file){
   const fd=new FormData();fd.append("file",file);fd.append("upload_preset",CLD_PRESET);
   const res=await fetch(`https://api.cloudinary.com/v1_1/${CLD_CLOUD}/image/upload`,{method:"POST",body:fd});
@@ -828,6 +852,598 @@ function ExplainModal({onClose,isAdmin}){
 }
 
 /* ══ LANDING ══ */
+
+/* ══ GEMINI BOT ══ */
+async function askGemini(sysprompt,history,maxTok){
+  async function doRequest(prompt,hist,tok){
+    var msgs=[{role:"system",content:prompt}];
+    hist.forEach(function(m){msgs.push({role:m.r==="user"?"user":"assistant",content:m.t});});
+    var model=prompt.includes("Available information about [")?"llama-3.3-70b-versatile":"llama-3.1-8b-instant";
+  var res=await fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_KEY},body:JSON.stringify({model:model,messages:msgs,max_tokens:tok||500,temperature:0.3})});
+    if(!res.ok){var e=await res.json();throw new Error(e&&e.error&&e.error.message||"error");}
+    var d=await res.json();
+    return (d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content)||"";
+  }
+  try{
+    return await doRequest(sysprompt,history,maxTok);
+  }catch(e){
+    // لو فشل بسبب tokens — جرب تاني بـ context مضغوط ورسالة واحدة بس
+    if(e.message&&(e.message.includes("too large")||e.message.includes("tokens")||e.message.includes("limit"))){
+      var shortPrompt=sysprompt.slice(0,3000); // اول 3000 حرف بس
+      return await doRequest(shortPrompt,history.slice(-1),400);
+    }
+    throw e;
+  }
+}
+
+var SYSTEM_BASE=[
+  "You are a customer service assistant for Rebranding agency.",
+  "CRITICAL RULES — follow them exactly:",
+  "1. ONLY answer using information provided in the context below. Never add anything from your own knowledge.",
+  "2. If the information is NOT in the context, write exactly: [UNANSWERED] then the question. Do NOT guess or hallucinate.",
+  "3. NEVER invent phone numbers, addresses, prices, or any data not explicitly stated below.",
+  "4. NEVER ask a follow-up question at the end of your reply.",
+  "5. NEVER say 'Would you like...' or 'Can I help you with anything else?'.",
+  "6. If asked about an offer, copy it WORD FOR WORD — no summarizing, no cutting.",
+  "7. Always reply in Egyptian Arabic (عربي مصري عامية) in a friendly tone.",
+].join("\n");
+
+function buildContext(accs,offs){
+  var activeOffs=offs.filter(function(o){return !isExp(o.expiryDate);});
+  var parts=[SYSTEM_BASE,"","الأكونتات: "+accs.map(function(a){return a.name;}).join(" | ")];
+  if(activeOffs.length>0){
+    parts.push("العروض النشطة:");
+    activeOffs.slice(0,12).forEach(function(o){
+      var acc=accs.find(function(a){return a.id===o.accountId;});
+      var line="- "+o.title+(acc?" ("+acc.name+")":"");
+      if(o.description)line+=" — "+o.description;
+      parts.push(line);
+    });
+  }
+  return parts.join("\n");
+}
+
+
+function fuzzyMatch(str,target){
+  // Check if str contains target or target contains str (partial match)
+  var s=str.toLowerCase().trim();
+  var t=target.toLowerCase().trim();
+  if(s.includes(t)||t.includes(s))return true;
+  // Check word by word
+  var words=t.split(/\s+/);
+  var matched=words.filter(function(w){return w.length>2&&s.includes(w);});
+  return matched.length>=Math.ceil(words.length*0.6);
+}
+
+function buildSmartContext(userText,accs,offs){
+  var lower=userText.toLowerCase();
+  var matched=null;
+  var bestScore=0;
+
+  accs.forEach(function(a){
+    var score=0;
+    if(lower.includes(a.name.toLowerCase()))score+=10;
+    else if(fuzzyMatch(lower,a.name))score+=6;
+    (a.tags||[]).forEach(function(tag){if(tag&&lower.includes(tag.toLowerCase()))score+=3;});
+    offs.filter(function(o){return o.accountId===a.id&&!isExp(o.expiryDate);}).forEach(function(o){
+      if(o.title&&fuzzyMatch(lower,o.title))score+=4;
+    });
+    if(score>bestScore){bestScore=score;matched=a;}
+  });
+
+  // لو لقينا أكونت — ابعت context مخصص بكل تفاصيله
+  if(bestScore>0&&matched){
+    return {ctx:buildAccContext(matched,offs),matched:matched};
+  }
+
+  // مفيش match — ابعت كل الأكونتات بتفاصيلها كاملة
+  // لو أكونتات كتير نضغط عشان متعداش الـ tokens
+  var allCtx=buildFullContext(accs,offs);
+  return {ctx:allCtx,matched:null};
+}
+
+function buildFullContext(accs,offs){
+  var activeOffs=offs.filter(function(o){return !isExp(o.expiryDate);});
+  var parts=[
+    SYSTEM_BASE,
+    "",
+    "IMPORTANT DISTINCTION:",
+    "- 'OFFER EXPIRY DATE' = the last date a promotional offer is valid (تاريخ انتهاء العرض)",
+    "- 'WORKING HOURS' = the daily opening/closing times of the place (مواعيد العمل/الغلق)",
+    "These are COMPLETELY DIFFERENT. Never confuse them.",
+    "",
+    "Accounts:"
+  ];
+  accs.forEach(function(a){
+    var ao=activeOffs.filter(function(o){return o.accountId===a.id;});
+    var line=a.name;
+    if(a.timesReply)line+=" | WORKING-HOURS: "+a.timesReply.slice(0,80);
+    if(a.contactReply)line+=" | CONTACT: "+a.contactReply.slice(0,50);
+    if(ao.length>0){
+      line+=" | OFFERS: "+ao.map(function(o){
+        var s=o.title;
+        if(o.expiryDate)s+=" [OFFER-EXPIRES: "+fmtDate(o.expiryDate)+"]";
+        return s;
+      }).join(" / ");
+    }
+    parts.push(line);
+  });
+  return parts.join("\n");
+}
+
+
+
+
+function buildAccContext(a,offs){
+  var ao=offs.filter(function(o){return o.accountId===a.id&&!isExp(o.expiryDate);});
+  var tqa=(a.trainedQA||[]).filter(function(q){return q.q&&q.a;});
+  var parts=[
+    SYSTEM_BASE,
+    "",
+    "Available information about ["+a.name+"] ONLY — do not add anything else:",
+    "━━━━━━━━━━━━━━━━━━━━"
+  ];
+  parts.push("IMPORTANT: 'OFFER EXPIRY' = last date offer is valid. 'WORKING HOURS' = daily open/close times. Never confuse them.");
+  if(a.description)parts.push("Description: "+a.description);
+  if(a.fixedReply)parts.push("【Fixed Reply — copy as-is】\n"+a.fixedReply);
+  if(a.timesReply)parts.push("【WORKING HOURS (مواعيد العمل اليومية) — copy as-is】\n"+a.timesReply);
+  if(a.contactReply)parts.push("【Contact Info — copy as-is】\n"+a.contactReply);
+  (a.extraReplies||[]).filter(function(r){return r.text;}).forEach(function(r){
+    parts.push("【"+r.label+"】\n"+r.text);
+  });
+  if(ao.length>0){
+    parts.push("【Offers】— copy requested offer WORD FOR WORD:");
+    ao.forEach(function(o,idx){
+      var block="[OFFER "+(idx+1)+"] "+o.title;
+      if(o.badge)block+=" ("+o.badge+")";
+      if(o.description)block+="\n"+o.description;
+      if(o.content)block+="\n"+o.content;
+      if(o.expiryDate)block+="\nOFFER-EXPIRY-DATE (آخر يوم للعرض): "+fmtDate(o.expiryDate);
+      if(o.link)block+="\n"+o.link;
+      parts.push(block);
+    });
+  }
+  if(tqa.length>0){
+    parts.push("【Trained Q&A — use these answers directly】");
+    tqa.forEach(function(q){parts.push("Q: "+q.q+"\nA: "+q.a);});
+  }
+  return parts.join("\n");
+}
+
+function QAnswerRow({item,onSave,idx}){
+  const[ans,setAns]=useState(item.a||"");
+  const[saving,setSaving]=useState(false);
+  const[done,setDone]=useState(false);
+  async function doSave(){
+    if(!ans.trim())return;
+    setSaving(true);
+    await onSave(item,ans,idx);
+    setDone(true);
+    setSaving(false);
+  }
+  if(done)return <div style={{fontSize:".68rem",color:"#4ade80",fontWeight:700}}>✅ تم الحفظ!</div>;
+  return(
+    <div style={{display:"flex",gap:".3rem"}}>
+      <input
+        placeholder="اكتب الإجابة هنا..."
+        value={ans}
+        onChange={e=>setAns(e.target.value)}
+        onKeyDown={e=>{if(e.key==="Enter")doSave();}}
+        style={{flex:1,background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.1)",color:"var(--text)",borderRadius:4,padding:".28rem .5rem",fontFamily:"Cairo,sans-serif",fontSize:".7rem",direction:"rtl"}}
+      />
+      {ans.trim()&&<button onClick={doSave} disabled={saving} style={{background:"var(--hl)",color:"#0a0a0a",border:"none",borderRadius:4,padding:".28rem .55rem",fontSize:".7rem",fontWeight:700,cursor:"pointer",fontFamily:"Cairo,sans-serif",whiteSpace:"nowrap"}}>{saving?"⏳":"💾"}</button>}
+    </div>
+  );
+}
+
+function BotWindow({accs,offs,isAdmin,onClose,onSaveQA}){
+  const WELCOME="أهلاً! 👋 اسألني عن أي أكونت أو عرض وهساعدك في ثانية. لو مش لاقي إجابة، هيوصل سؤالك للأدمن تلقائياً ✨";
+  const SESSION_KEY="bot_session_"+Math.floor(Date.now()/3600000); // changes every hour
+  const[msgs,setMsgs]=useState([{r:"ai",t:WELCOME}]);
+  const[input,setInput]=useState("");
+  const[loading,setLoading]=useState(false);
+  const[unanswered,setUnanswered]=useState([]);
+  const[showQPanel,setShowQPanel]=useState(false);
+  const[savedQ,setSavedQ]=useState([]);
+  const[typing,setTyping]=useState(false);
+  const[ratings,setRatings]=useState({});
+  const[botMode,setBotMode]=useState(null);
+  const[lockedAcc,setLockedAcc]=useState(null);
+  const msgCountRef=useRef(0);
+  const lastMsgTimeRef=useRef(Date.now());
+  const msgsRef=useRef();
+  const ctx=buildContext(accs,offs);
+  useEffect(()=>{if(msgsRef.current)msgsRef.current.scrollTop=msgsRef.current.scrollHeight;},[msgs,typing]);
+
+  // Load session from sessionStorage (per tab, cleared on close)
+  useEffect(()=>{
+    try{
+      var saved=sessionStorage.getItem(SESSION_KEY);
+      if(saved){var parsed=JSON.parse(saved);if(parsed&&parsed.length>1)setMsgs(parsed);}
+    }catch(e){}
+  },[]);
+
+  // Save session on every message
+  useEffect(()=>{
+    if(msgs.length>1){
+      try{sessionStorage.setItem(SESSION_KEY,JSON.stringify(msgs.slice(-20)));}catch(e){}
+    }
+  },[msgs]);
+
+  function detectLang(txt){
+    var arabicChars=(txt.match(/[؀-ۿ]/g)||[]).length;
+    return arabicChars>txt.length*0.3?"ar":"en";
+  }
+  function isDuplicate(txt,history){
+    var recent=history.slice(-6).filter(function(m){return m.r==="user";});
+    return recent.some(function(m){return m.t&&m.t.trim()===txt.trim();});
+  }
+
+  // Load saved unanswered questions from Firebase
+  useEffect(()=>{
+    if(!isAdmin)return;
+    var fb=window.__fb;if(!fb)return;
+    try{
+      var unsub=fb.onSnapshot(fb.collection(fb.db,"unanswered_questions"),function(snap){
+        var items=[];
+        snap.forEach(function(d){items.push(Object.assign({id:d.id},d.data()));});
+        items.sort(function(a,b){return (b.createdAt||"").localeCompare(a.createdAt||"");});
+        setSavedQ(items);
+      });
+      return function(){unsub();};
+    }catch(e){}
+  },[isAdmin]);
+
+  async function saveUnansweredToFB(q,accName){
+    try{
+      var fb=window.__fb;if(!fb)return;
+      var id="uq_"+Date.now();
+      await fb.setDoc(fb.doc(fb.db,"unanswered_questions",id),{q:q,accName:accName||"عام",a:"",createdAt:new Date().toISOString()});
+    }catch(e){}
+  }
+
+  async function answerSavedQ(item,ans,idx){
+    var fb=window.__fb;if(!fb)return;
+    var matched=accs.find(function(a){return a.name===item.accName;})||
+                accs.find(function(a){return (item.q||"").includes(a.name);});
+    if(!matched)matched=accs.slice().sort(function(a,b){
+      return offs.filter(function(o){return o.accountId===b.id;}).length -
+             offs.filter(function(o){return o.accountId===a.id;}).length;
+    })[0];
+    if(!matched)return;
+    var existing=(matched.trainedQA||[]);
+    var isDup=existing.find(function(x){return x.q.trim()===item.q.trim();});
+    var newQA=isDup
+      ? existing.map(function(x){return x.q.trim()===item.q.trim()?{q:x.q,a:ans}:x;})
+      : [...existing,{q:item.q,a:ans}];
+    try{
+      await fb.setDoc(fb.doc(fb.db,"accounts",matched.id),Object.assign({},matched,{trainedQA:newQA,updatedAt:new Date().toISOString()}));
+      await fb.deleteDoc(fb.doc(fb.db,"unanswered_questions",item.id));
+    }catch(e){alert(e.message);}
+  }
+  async function send(){
+    const txt=input.trim();if(!txt||loading)return;
+
+    // Rate limiting: max 10 msgs per minute
+    var now=Date.now();
+    if(now-lastMsgTimeRef.current<60000){
+      msgCountRef.current++;
+      if(msgCountRef.current>10){
+        setInput("");
+        setMsgs(function(p){return [...p,{r:"user",t:txt},{r:"ai",t:"⚠️ بعتلنا كتير شوية! استنى دقيقة وجرب تاني 😅"}];});
+        return;
+      }
+    } else {
+      msgCountRef.current=1;
+      lastMsgTimeRef.current=now;
+    }
+
+    // Duplicate detection
+    if(isDuplicate(txt,msgs)){
+      setInput("");
+      setTimeout(function(){
+        setMsgs(function(p){return [...p,{r:"user",t:txt},{r:"ai",t:"🤔 سألت نفس السؤال قبل كده! لو مش لاقي الإجابة تواصل مع الأدمن على واتساب 👇\nhttps://wa.me/"+WA}];});
+      },500);
+      return;
+    }
+
+    setInput("");
+    const hist=[...msgs,{r:"user",t:txt}];
+    setMsgs(hist);
+    setTyping(true);
+    setLoading(true);
+
+    try{
+      var matched=null;
+      var activeCtx="";
+
+      if(lockedAcc){
+        // وضع الأكونت المقفول — دايماً نبعت context الأكونت ده بس
+        matched=lockedAcc;
+        activeCtx=buildAccContext(lockedAcc,offs);
+      } else if(botMode==="general"){
+        // وضع السؤال العام — كل الداتا
+        activeCtx=buildFullContext(accs,offs);
+      } else {
+        // Auto detect من آخر رسالتين
+        var recentText=hist.slice(-2).map(function(m){return m.t||"";}).join(" ");
+        var smart=buildSmartContext(recentText,accs,offs);
+        if(!smart.matched){
+          var allText=hist.map(function(m){return m.t||"";}).join(" ");
+          smart=buildSmartContext(allText,accs,offs);
+        }
+        matched=smart.matched;
+        activeCtx=smart.ctx;
+      }
+
+      var lang=detectLang(txt);
+      if(lang==="en")activeCtx+=("\n\nIMPORTANT: User is writing in English, reply in English.");
+
+      // Smart typing delay based on question length
+      var delay=Math.min(400+txt.length*8,1200);
+      await new Promise(function(r){setTimeout(r,delay);});
+
+      // More tokens if asking about offers
+      var isOfferQ=/(عرض|عروض|offer|deal|اللي عندكم|منيو|menu|اسعار|سعر|price)/i.test(txt);
+      // لو الأكونت اتغير عن آخر رسالة — ابعت history أقل عشان ميشيلش context قديم
+      var prevText=hist.slice(-4,-1).map(function(m){return m.t||"";}).join(" ");
+      var prevSmart=buildSmartContext(prevText,accs,offs);
+      var topicChanged=matched&&prevSmart.matched&&matched.id!==prevSmart.matched.id;
+      var histSlice=topicChanged?hist.slice(-1):hist.slice(-3);
+      const reply=await askGemini(activeCtx,histSlice.map(m=>({r:m.r,t:m.t})),isOfferQ?1000:500);
+
+      // Validate reply - check for hallucinated phone numbers not in context
+      var cleanReply=reply;
+      var replyNums=(reply.match(/\d{7,}/g)||[]);
+      var ctxNums=(activeCtx.match(/\d{7,}/g)||[]);
+      var hasHallucination=replyNums.some(function(n){return !ctxNums.includes(n);});
+      if(hasHallucination){
+        // Replace with safe fallback
+        cleanReply="المعلومة دي مش متاحة عندي. تواصل مع الأدمن مباشرة للتأكيد.";
+        if(matched&&matched.contactReply){
+          cleanReply+="\n"+matched.contactReply;
+        }
+      }
+
+      // Detect unanswered questions
+      var unansweredMatch=cleanReply.match(/\[UNANSWERED\]\s*(.+)/);
+      if(unansweredMatch){
+        var uq=unansweredMatch[1].trim();
+        var isNew=true;
+        setUnanswered(p=>{
+          if(p.find(function(x){return x.q===uq;})){isNew=false;return p;}
+          return [...p,{q:uq,a:""}];
+        });
+        if(isNew){
+          var accName=matched?matched.name:"عام";
+          saveUnansweredToFB(uq,accName);
+          var waText=encodeURIComponent("❓ سؤال جديد بدون إجابة في البوت:\n\nالأكونت: "+accName+"\nالسؤال: "+uq+"\n\nافتح البوت واضغط 📋 عشان ترد 🤖");
+          window.open("https://wa.me/"+WA+"?text="+waText,"_blank");
+        }
+        cleanReply=reply.replace(/\[UNANSWERED\]\s*.+[\s\S]?/,"").trim();
+      }
+
+      // Add WhatsApp button if reply mentions contact info
+      var hasContact=(cleanReply.includes("واتساب")||cleanReply.includes("تواصل")||cleanReply.includes("WhatsApp"));
+      if(hasContact&&matched&&matched.contactReply){
+        var waNum=(matched.contactReply.match(/\d{7,}/)||[])[0];
+        if(waNum)cleanReply=cleanReply+"\n\`\`\`wa:"+waNum+"\`\`\`";
+      }
+
+      setTyping(false);
+      setMsgs([...hist,{r:"ai",t:cleanReply}]);
+    }catch(e){
+      setTyping(false);
+      var errMsg=e.message||"";
+      var fallback;
+      if(errMsg.includes("rate")||errMsg.includes("quota")){
+        fallback="⏳ في ضغط دلوقتي! استنى ثانية وجرب تاني.";
+      } else {
+        fallback="❌ في مشكلة في الاتصال. تواصل معنا مباشرة على واتساب 👇\nhttps://wa.me/"+WA;
+      }
+      setMsgs([...hist,{r:"ai",t:fallback}]);
+    }
+    setLoading(false);
+  }
+  return(
+    <div className="bot-window">
+      <div className="bot-head">
+        <span style={{fontSize:"1.2rem"}}>🤖</span>
+        <div style={{flex:1}}>
+          <div style={{fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".85rem"}}>{isAdmin?"مساعد الأدمن":"مساعد Rebranding"}</div>
+          {lockedAcc
+            ? <div style={{fontSize:".6rem",color:"var(--hl)",display:"flex",alignItems:"center",gap:".3rem"}}>
+                🔒 {lockedAcc.name}
+                <button onClick={()=>{setLockedAcc(null);setBotMode(null);setMsgs([{r:"ai",t:WELCOME}]);}} style={{background:"rgba(239,68,68,.1)",border:"1px solid rgba(239,68,68,.2)",color:"#f87171",borderRadius:3,fontSize:".55rem",padding:".05rem .3rem",cursor:"pointer",fontFamily:"Cairo,sans-serif"}}>تغيير</button>
+              </div>
+            : <div style={{fontSize:".6rem",color:"var(--hl)"}}>{botMode==="general"?"🌐 سؤال عام":isAdmin?"يعرف كل الأكونتات":"اسأل عن أي أكونت"}</div>
+          }
+        </div>
+        {isAdmin&&(
+          <button onClick={()=>setShowQPanel(!showQPanel)} title="الأسئلة المحفوظة" style={{position:"relative",background:showQPanel?"rgba(212,165,116,.15)":"transparent",border:"1px solid "+(showQPanel?"rgba(212,165,116,.4)":"transparent"),borderRadius:6,color:savedQ.length>0?"var(--hl)":"var(--dim)",fontSize:".85rem",cursor:"pointer",padding:".1rem .4rem",transition:"all .18s"}}>
+            📋
+            {savedQ.length>0&&<span style={{position:"absolute",top:-4,right:-4,background:"#ef4444",color:"#fff",borderRadius:"50%",fontSize:".5rem",width:14,height:14,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>{savedQ.length}</span>}
+          </button>
+        )}
+        <button onClick={()=>{setMsgs([{r:"ai",t:WELCOME}]);setBotMode(null);setLockedAcc(null);}} title="مسح المحادثة" style={{background:"transparent",border:"none",color:"var(--dim)",fontSize:".85rem",cursor:"pointer",padding:".1rem .3rem"}}>🗑</button>
+        <button onClick={onClose} style={{background:"transparent",border:"none",color:"var(--dim)",fontSize:"1.1rem",cursor:"pointer",padding:".1rem .3rem"}}>✕</button>
+      </div>
+      {showQPanel&&isAdmin?(
+        <div style={{flex:1,overflowY:"auto",padding:".8rem 1rem",display:"flex",flexDirection:"column",gap:".5rem"}}>
+          <div style={{fontSize:".72rem",color:"var(--hl)",fontWeight:700,marginBottom:".2rem"}}>📋 الأسئلة اللي البوت مش عارف يجاوب عليها</div>
+          {savedQ.length===0&&<div style={{fontSize:".78rem",color:"var(--dim)",textAlign:"center",padding:"1.5rem 0"}}>✅ مفيش أسئلة معلقة دلوقتي</div>}
+          {savedQ.map(function(item,i){
+            return(
+              <div key={item.id} style={{background:"rgba(255,255,255,.03)",border:"1px solid rgba(251,191,36,.2)",borderRadius:8,padding:".65rem .75rem"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:".4rem",gap:".4rem"}}>
+                  <div style={{fontSize:".72rem",color:"var(--text)",lineHeight:1.55,flex:1}}>❓ {item.q}</div>
+                  <span style={{fontSize:".6rem",color:"var(--hl)",background:"rgba(212,165,116,.08)",border:"1px solid rgba(212,165,116,.18)",borderRadius:4,padding:".08rem .35rem",whiteSpace:"nowrap",flexShrink:0}}>{item.accName}</span>
+                </div>
+                <QAnswerRow item={item} onSave={answerSavedQ} idx={i}/>
+              </div>
+            );
+          })}
+          {savedQ.length>0&&(
+            <button onClick={()=>{
+              var lines=savedQ.map(function(u,i){return (i+1)+". ["+u.accName+"] "+u.q;}).join("\n");
+              var txt=encodeURIComponent("❓ أسئلة معلقة في البوت:\n\n"+lines+"\n\nافتح البوت واضغط 📋 عشان ترد عليها 🤖");
+              window.open("https://wa.me/"+WA+"?text="+txt,"_blank");
+            }} style={{marginTop:".3rem",padding:".38rem",border:"1px solid rgba(37,211,102,.25)",borderRadius:8,background:"rgba(37,211,102,.05)",color:"#25D366",fontFamily:"Cairo,sans-serif",fontSize:".72rem",fontWeight:700,cursor:"pointer"}}>📤 ارسل الكل على واتساب</button>
+          )}
+        </div>
+      ):(
+      <div className="bot-msgs" ref={msgsRef}>
+        {msgs.length===1&&accs.length>0&&!botMode&&(
+          <div style={{padding:".5rem 0"}}>
+            <div style={{fontSize:".72rem",color:"var(--dim)",marginBottom:".6rem",textAlign:"center"}}>اختار نوع سؤالك 👇</div>
+            <div style={{display:"flex",gap:".5rem",marginBottom:".7rem"}}>
+              <button onClick={()=>setBotMode("general")} style={{flex:1,padding:".6rem",borderRadius:10,border:"1px solid rgba(255,255,255,.1)",background:"rgba(255,255,255,.03)",color:"var(--text)",fontFamily:"Cairo,sans-serif",fontSize:".78rem",fontWeight:600,cursor:"pointer",transition:"all .2s",textAlign:"center"}}
+                onMouseOver={function(e){e.currentTarget.style.borderColor="rgba(212,165,116,.4)";e.currentTarget.style.background="rgba(212,165,116,.06)";}}
+                onMouseOut={function(e){e.currentTarget.style.borderColor="rgba(255,255,255,.1)";e.currentTarget.style.background="rgba(255,255,255,.03)";}}>
+                🌐 سؤال عام
+                <div style={{fontSize:".6rem",color:"var(--dim)",marginTop:".2rem",fontWeight:400}}>عن أي أكونت أو عرض</div>
+              </button>
+              <button onClick={()=>setBotMode("acc")} style={{flex:1,padding:".6rem",borderRadius:10,border:"1px solid rgba(212,165,116,.25)",background:"rgba(212,165,116,.05)",color:"var(--hl)",fontFamily:"Cairo,sans-serif",fontSize:".78rem",fontWeight:600,cursor:"pointer",transition:"all .2s",textAlign:"center"}}
+                onMouseOver={function(e){e.currentTarget.style.background="rgba(212,165,116,.12)";}}
+                onMouseOut={function(e){e.currentTarget.style.background="rgba(212,165,116,.05)";}}>
+                🏪 أكونت معين
+                <div style={{fontSize:".6rem",color:"var(--dim)",marginTop:".2rem",fontWeight:400}}>اختار واسأل فيه بس</div>
+              </button>
+            </div>
+          </div>
+        )}
+        {msgs.length===1&&botMode==="acc"&&!lockedAcc&&(
+          <div style={{padding:".3rem 0"}}>
+            <div style={{fontSize:".68rem",color:"var(--dim)",marginBottom:".4rem"}}>اختار الأكونت 👇</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:".3rem"}}>
+              {accs.filter(a=>a.status==="نشط").map(a=>(
+                <button key={a.id} className="acc-chip" onClick={()=>{
+                  setLockedAcc(a);
+                  setMsgs(function(p){return [...p,{r:"ai",t:"تمام! هسألك عن "+a.name+" بس 🎯 اتفضل اسأل."}];});
+                }}>
+                  {a.avatar&&<img src={a.avatar} style={{width:16,height:16,borderRadius:"50%",objectFit:"cover"}} alt=""/>}
+                  {a.name}
+                </button>
+              ))}
+            </div>
+            <button onClick={()=>setBotMode(null)} style={{marginTop:".5rem",fontSize:".65rem",color:"var(--dim)",background:"transparent",border:"none",cursor:"pointer",fontFamily:"Cairo,sans-serif",textDecoration:"underline"}}>← رجوع</button>
+          </div>
+        )}
+        {msgs.length===1&&botMode==="general"&&(
+          <div style={{padding:".2rem 0 .4rem"}}>
+            <div style={{display:"flex",flexWrap:"wrap",gap:".3rem"}}>
+              {["🎁 إيه العروض؟","🕐 المواعيد؟","📞 التواصل؟"].map(function(q){
+                return <button key={q} onClick={()=>setInput(q.slice(2))} style={{padding:".25rem .6rem",borderRadius:14,border:"1px solid rgba(255,255,255,.1)",background:"rgba(255,255,255,.04)",color:"var(--dim)",fontFamily:"Cairo,sans-serif",fontSize:".68rem",cursor:"pointer"}}>
+                  {q}
+                </button>;
+              })}
+            </div>
+            <button onClick={()=>setBotMode(null)} style={{marginTop:".4rem",fontSize:".65rem",color:"var(--dim)",background:"transparent",border:"none",cursor:"pointer",fontFamily:"Cairo,sans-serif",textDecoration:"underline"}}>← رجوع</button>
+          </div>
+        )}
+        {msgs.map((m,i)=>(
+          <div key={i} style={{position:"relative"}} className="bot-msg-wrap">
+            <div className={m.r==="user"?"bot-bubble-user":"bot-bubble-ai"}>
+              {m.t.split("\n").map(function(line,li){
+                var waMatch=line.match(/^```wa:(\d+)```$/);
+                if(waMatch){
+                  return <a key={li} href={"https://wa.me/"+waMatch[1]} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:".3rem",marginTop:".4rem",padding:".3rem .8rem",borderRadius:8,background:"#25D366",color:"#fff",fontSize:".75rem",fontWeight:700,textDecoration:"none"}}>💬 واتساب</a>;
+                }
+                return <span key={li}>{line}{li<m.t.split("\n").length-1&&<br/>}</span>;
+              })}
+            </div>
+            {m.r==="ai"&&i>0&&(
+              <div style={{display:"flex",gap:".25rem",marginTop:".3rem",alignItems:"center"}}>
+                <button onClick={()=>{navigator.clipboard.writeText(m.t);}} style={{background:"rgba(212,165,116,.08)",border:"1px solid rgba(212,165,116,.15)",color:"var(--hl)",borderRadius:4,fontSize:".6rem",padding:".12rem .4rem",cursor:"pointer",fontFamily:"'Cairo',sans-serif"}}>نسخ</button>
+                {!ratings[i]&&<>
+                  <button onClick={()=>setRatings(function(p){return Object.assign({},p,{[i]:"up"});})} style={{background:"rgba(74,222,128,.06)",border:"1px solid rgba(74,222,128,.15)",color:"#4ade80",borderRadius:4,fontSize:".65rem",padding:".1rem .35rem",cursor:"pointer"}}>👍</button>
+                  <button onClick={()=>setRatings(function(p){return Object.assign({},p,{[i]:"down"});})} style={{background:"rgba(239,68,68,.06)",border:"1px solid rgba(239,68,68,.15)",color:"#f87171",borderRadius:4,fontSize:".65rem",padding:".1rem .35rem",cursor:"pointer"}}>👎</button>
+                </>}
+                {ratings[i]==="up"&&<span style={{fontSize:".6rem",color:"#4ade80"}}>✓ كويس</span>}
+                {ratings[i]==="down"&&<span style={{fontSize:".6rem",color:"#f87171"}}>↩ وصلنا</span>}
+              </div>
+            )}
+          </div>
+        ))}
+        {(loading||typing)&&<div className="bot-bubble-ai"><span className="tdot"/><span className="tdot"/><span className="tdot"/></div>}
+      </div>
+      )}
+      {isAdmin&&unanswered.length>0&&(
+        <div style={{padding:".6rem 1rem",borderTop:"1px solid rgba(251,191,36,.15)",background:"rgba(251,191,36,.03)",maxHeight:220,overflowY:"auto"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:".4rem"}}>
+            <div style={{fontSize:".65rem",color:"#fbbf24",fontWeight:700}}>❓ أسئلة بدون إجابة ({unanswered.length})</div>
+            <button onClick={()=>{
+              var lines=unanswered.map(function(u,i){return (i+1)+". "+u.q;}).join("\n");
+              var txt=encodeURIComponent("❓ أسئلة بدون إجابة في البوت:\n\n"+lines+"\n\nافتح الموقع وارد عليها من قسم الأدمن 🤖");
+              window.open("https://wa.me/"+WA+"?text="+txt,"_blank");
+            }} style={{fontSize:".6rem",background:"rgba(37,211,102,.1)",color:"#25D366",border:"1px solid rgba(37,211,102,.25)",borderRadius:4,padding:".15rem .45rem",cursor:"pointer",fontFamily:"Cairo,sans-serif",fontWeight:700}}>📤 ارسل واتساب</button>
+          </div>
+          {unanswered.map((item,i)=>(
+            <div key={i} style={{marginBottom:".5rem",background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.07)",borderRadius:6,padding:".4rem .6rem"}}>
+              <div style={{fontSize:".7rem",color:"var(--text)",marginBottom:".25rem",lineHeight:1.5}}>• {item.q}</div>
+              <div style={{display:"flex",gap:".3rem"}}>
+                <input placeholder="اكتب الإجابة..." value={item.a||""} onChange={e=>{setUnanswered(p=>{const n=[...p];n[i]={...n[i],a:e.target.value};return n;});}} style={{flex:1,background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.1)",color:"var(--text)",borderRadius:4,padding:".25rem .5rem",fontFamily:"Cairo,sans-serif",fontSize:".7rem",direction:"rtl"}} onKeyDown={e=>{if(e.key==="Enter"&&item.a&&item.a.trim()){onSaveQA&&onSaveQA(item);setUnanswered(p=>p.filter((_,idx)=>idx!==i));}}}/>
+                <button onClick={()=>setUnanswered(p=>p.filter((_,idx)=>idx!==i))} title="تجاهل" style={{background:"rgba(239,68,68,.08)",border:"1px solid rgba(239,68,68,.15)",color:"#f87171",borderRadius:4,padding:".25rem .4rem",fontSize:".65rem",cursor:"pointer"}}>✕</button>
+                {item.a&&item.a.trim()&&<button onClick={()=>{onSaveQA&&onSaveQA(item);setUnanswered(p=>p.filter((_,idx)=>idx!==i));}} style={{background:"var(--hl)",color:"#0a0a0a",border:"none",borderRadius:4,padding:".25rem .5rem",fontSize:".7rem",fontWeight:700,cursor:"pointer",fontFamily:"Cairo,sans-serif",whiteSpace:"nowrap"}}>💾 حفظ</button>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="bot-inp-row">
+        <input className="bot-inp" placeholder="اكتب سؤالك..." value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} disabled={loading}/>
+        <button className="bot-send" onClick={send} disabled={loading||!input.trim()}>➤</button>
+      </div>
+    </div>
+  );
+}
+
+function TrainPage({accs,onSave,onClose}){
+  const[selId,setSelId]=useState(accs.length>0?accs[0].id:"");
+  const selAcc=accs.find(a=>a.id===selId)||accs[0];
+  const[qas,setQas]=useState([{q:"",a:""}]);
+  useEffect(()=>{if(selAcc)setQas((selAcc.trainedQA||[]).length>0?[...selAcc.trainedQA]:[{q:"",a:""}]);},[selId]);
+  const add=()=>setQas(p=>[...p,{q:"",a:""}]);
+  const remove=i=>setQas(p=>p.filter((_,idx)=>idx!==i));
+  const upd=(i,k,v)=>setQas(p=>{const n=[...p];n[i]={...n[i],[k]:v};return n;});
+  return(
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="train-modal" onClick={e=>e.stopPropagation()}>
+        <div style={{display:"flex",alignItems:"center",gap:".65rem",marginBottom:"1rem"}}>
+          <span style={{fontSize:"1.3rem"}}>🎓</span>
+          <div style={{flex:1}}>
+            <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700}}>تدريب البوت</div>
+            <div style={{fontSize:".65rem",color:"var(--dim)"}}>أضف أسئلة وأجوبة يتعلمها البوت</div>
+          </div>
+          <button onClick={onClose} style={{background:"transparent",border:"none",color:"var(--dim)",fontSize:"1.1rem",cursor:"pointer"}}>✕</button>
+        </div>
+        <div style={{marginBottom:".8rem"}}>
+          <label style={{fontSize:".7rem",color:"var(--dim)",display:"block",marginBottom:".3rem"}}>اختر الأكونت</label>
+          <select value={selId} onChange={e=>setSelId(e.target.value)} style={{width:"100%",background:"var(--card)",border:"1px solid var(--border)",color:"var(--text)",borderRadius:6,padding:".45rem .75rem",fontFamily:"'Cairo',sans-serif",fontSize:".82rem"}}>
+            {accs.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </div>
+        {qas.map((qa,i)=>(
+          <div key={i} className="train-qa">
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:".4rem"}}>
+              <span style={{fontSize:".65rem",color:"var(--hl)",fontWeight:700}}>سؤال {i+1}</span>
+              {qas.length>1&&<button onClick={()=>remove(i)} style={{background:"rgba(239,68,68,.08)",border:"1px solid rgba(239,68,68,.2)",color:"#f87171",width:24,height:24,borderRadius:4,fontSize:".75rem",cursor:"pointer"}}>✕</button>}
+            </div>
+            <input placeholder="السؤال" value={qa.q} onChange={e=>upd(i,"q",e.target.value)} style={{...S.inp,marginBottom:".35rem",fontSize:".8rem"}}/>
+            <textarea placeholder="الجواب..." value={qa.a} onChange={e=>upd(i,"a",e.target.value)} style={{...S.inp,minHeight:60,resize:"vertical",marginBottom:0,fontSize:".8rem"}}/>
+          </div>
+        ))}
+        <button onClick={add} style={{width:"100%",padding:".38rem",border:"1.5px dashed rgba(212,165,116,.25)",borderRadius:8,background:"transparent",color:"var(--hl)",fontFamily:"'Cairo',sans-serif",fontSize:".78rem",fontWeight:600,marginBottom:"1rem",cursor:"pointer"}}>+ أضف سؤال</button>
+        <div style={{display:"flex",gap:".5rem"}}>
+          <button onClick={()=>onSave(selAcc,qas.filter(q=>q.q.trim()&&q.a.trim()))} style={{...S.pBtn,flex:1}}>💾 حفظ</button>
+          <button onClick={onClose} style={{...S.ghost,flex:1}}>إلغاء</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function LandingPage({onEnter,onAdmin,accs,offs}){
   const activeOffs=offs.filter(o=>!isExp(o.expiryDate)).length;
   const activeAccs=accs.filter(a=>a.status==="نشط").length;
@@ -1028,6 +1644,9 @@ function App(){
   const[profileAcc,setProfileAcc]=useState(null);// full-page profile (shared link)
   const[showQR,setShowQR]=useState(null);// acc for QR modal
   const[filterPinned,setFilterPinned]=useState(false);
+  const[showPublicBot,setShowPublicBot]=useState(false);
+  const[showAdminBot,setShowAdminBot]=useState(false);
+  const[showTrain,setShowTrain]=useState(false);
 
   // Acc form
   const EA={name:"",category:"مطاعم",avatar:"",coverImage:"",description:"",tags:"",status:"نشط",joinedDate:"",fixedReply:"",timesReply:"",contactReply:"",extraReplies:[],galleryImages:[]};
@@ -1160,6 +1779,12 @@ function App(){
     catch(e){alert(e.message);}
   }
 
+  async function saveTrainedQA(a,qas){
+    var fb=window.__fb;
+    try{await fb.setDoc(fb.doc(fb.db,"accounts",a.id),Object.assign({},a,{trainedQA:qas,updatedAt:new Date().toISOString()}));msg("🤖 تم حفظ التدريب!");setShowTrain(false);}
+    catch(e){alert(e.message);}
+  }
+
   /* ── Offer form ── */
   function openOF(o=null){if(o){setOf(o);setEOid(o.id);}else{setOf(EO);setEOid(null);}setShowOF(true);}
   async function saveOff(){
@@ -1198,6 +1823,51 @@ function App(){
 
   return(
     <div style={{minHeight:"100vh",position:"relative",zIndex:2,paddingBottom:"5rem"}}>
+
+      {/* ══ BOT FAB — PUBLIC ══ */}
+      {view==="pub"&&!admin&&(
+        <button className="bot-fab" onClick={()=>setShowPublicBot(!showPublicBot)} title="اسأل البوت">🤖</button>
+      )}
+      {view==="pub"&&!admin&&showPublicBot&&(
+        <BotWindow accs={accs} offs={offs} isAdmin={false} onClose={()=>setShowPublicBot(false)}/>
+      )}
+
+      {/* ══ BOT FAB — ADMIN ══ */}
+      {view==="admin"&&admin&&(
+        <button className="bot-fab" onClick={()=>setShowAdminBot(!showAdminBot)} title="مساعد الأدمن">🤖</button>
+      )}
+      {view==="admin"&&admin&&showAdminBot&&(
+        <BotWindow accs={accs} offs={offs} isAdmin={true} onClose={()=>setShowAdminBot(false)} onSaveQA={async(item)=>{
+          var fb=window.__fb;
+          // Smart matching: search question text for account name
+          var allText=item.q+" "+(item.ctx||"");
+          var matched=accs.find(function(a){return allText.includes(a.name);});
+          if(!matched){
+            // fallback: pick account with most offers (most active)
+            matched=accs.slice().sort(function(a,b){
+              var aO=offs.filter(function(o){return o.accountId===a.id;}).length;
+              var bO=offs.filter(function(o){return o.accountId===b.id;}).length;
+              return bO-aO;
+            })[0];
+          }
+          if(!matched)return;
+          var existing=(matched.trainedQA||[]);
+          var isDup=existing.find(function(x){return x.q.trim()===item.q.trim();});
+          var newQA=isDup
+            ? existing.map(function(x){return x.q.trim()===item.q.trim()?{q:x.q,a:item.a}:x;})
+            : [...existing,{q:item.q,a:item.a}];
+          var updated={...matched,trainedQA:newQA,updatedAt:new Date().toISOString()};
+          try{
+            await fb.setDoc(fb.doc(fb.db,"accounts",matched.id),updated);
+            msg(isDup?"✅ تم تحديث الإجابة في "+matched.name+"!":"✅ تم حفظ الإجابة في تدريب "+matched.name+"!");
+          }catch(e){alert(e.message);}
+        }}/>
+      )}
+
+      {/* ══ TRAIN MODAL ══ */}
+      {showTrain&&admin&&(
+        <TrainPage accs={accs} onSave={saveTrainedQA} onClose={()=>setShowTrain(false)}/>
+      )}
 
       {/* ── TOAST ── */}
       {toast&&<div style={{position:"fixed",bottom:22,left:"50%",transform:"translateX(-50%)",background:"var(--hl)",color:"#0a0a0a",padding:".42rem 1.4rem",borderRadius:20,fontWeight:700,zIndex:999,fontSize:".78rem",whiteSpace:"nowrap",boxShadow:"0 4px 22px rgba(212,165,116,.4)",animation:"slideUp .2s ease"}}>{toast}</div>}
