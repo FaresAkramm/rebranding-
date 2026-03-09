@@ -57,7 +57,7 @@ input,select,textarea{outline:none;font-family:'Cairo',sans-serif;-webkit-appear
 @keyframes modalIn{from{opacity:0;transform:translateY(28px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes shimmer{0%{background-position:200% center}100%{background-position:-200% center}}
 @keyframes glowPulse{0%,100%{box-shadow:0 0 28px rgba(212,165,116,0.2),0 0 56px rgba(212,165,116,0.05)}50%{box-shadow:0 0 46px rgba(212,165,116,0.32),0 0 90px rgba(212,165,116,0.09)}}
-@keyframes floatUp{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}
+@keyframes floatUp{from{opacity:0;transform:translateY(36px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes skelPulse{0%,100%{opacity:.35}50%{opacity:.6}}
 @keyframes pageIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 @keyframes accordOpen{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
@@ -157,8 +157,83 @@ input,select,textarea{outline:none;font-family:'Cairo',sans-serif;-webkit-appear
 .reply-item{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:.75rem;margin-bottom:.5rem;}
 .reply-item-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem;}
 
+
+/* ── Hover Preview ── */
+.acc-preview{position:absolute;top:calc(100% + 8px);right:0;width:260px;background:#111;border:1px solid rgba(212,165,116,.22);border-radius:10px;padding:.85rem;z-index:200;box-shadow:0 12px 36px rgba(0,0,0,.7);animation:fadeIn .18s ease;pointer-events:none;}
+.acc-preview::before{content:'';position:absolute;top:-6px;right:14px;width:10px;height:10px;background:#111;border-top:1px solid rgba(212,165,116,.22);border-right:1px solid rgba(212,165,116,.22);transform:rotate(-45deg);}
+
+/* ── Pin badge ── */
+.pin-badge{position:absolute;top:8px;right:8px;background:var(--hl);color:#0a0a0a;font-size:.55rem;font-weight:900;padding:.12rem .4rem;border-radius:4px;letter-spacing:.06em;text-transform:uppercase;z-index:2;}
+
+/* ── QR Modal ── */
+.qr-wrap{background:#fff;border-radius:10px;padding:12px;display:inline-block;}
+
+/* ── ReplyCard (profile board) ── */
+.reply-board-card{background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:10px;padding:1rem;cursor:pointer;transition:all .2s;}
+.reply-board-card:hover{border-color:rgba(212,165,116,.35);background:rgba(212,165,116,.04);}
+.reply-board-card.copied{border-color:rgba(74,222,128,.4);background:rgba(74,222,128,.07);box-shadow:0 0 0 2px rgba(74,222,128,.12);}
+
+/* ── Tag clickable ── */
+.tag-btn{display:inline-block;padding:.08rem .46rem;border-radius:4px;font-size:.62rem;font-weight:500;background:rgba(212,165,116,.07);color:var(--hl);border:1px solid rgba(212,165,116,.13);margin-left:.26rem;margin-bottom:.26rem;cursor:pointer;transition:all .18s;}
+.tag-btn:hover{background:rgba(212,165,116,.18);border-color:var(--hl);}
+
+/* ── Duplicate btn ── */
+.dup-btn{padding:.3rem .65rem;border-radius:4px;border:1px solid rgba(212,165,116,.2);font-weight:600;font-size:.72rem;font-family:'Cairo',sans-serif;background:rgba(212,165,116,.05);color:var(--hl);min-height:36px;}
+
+/* ── Smooth counter ── */
+@keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.stat-num{animation:countUp .5s ease both;}
+
+/* ── Swipe hint ── */
+@keyframes swipeHint{0%{transform:translateX(0)}40%{transform:translateX(-8px)}70%{transform:translateX(4px)}100%{transform:translateX(0)}}
+
+
+/* ── Staggered entrance ── */
+.s0{animation:floatUp .7s cubic-bezier(.22,1,.36,1) .05s both;}
+.s1{animation:floatUp .7s cubic-bezier(.22,1,.36,1) .18s both;}
+.s2{animation:floatUp .7s cubic-bezier(.22,1,.36,1) .32s both;}
+.s3{animation:floatUp .7s cubic-bezier(.22,1,.36,1) .46s both;}
+.s4{animation:floatUp .7s cubic-bezier(.22,1,.36,1) .58s both;}
+.s5{animation:floatUp .7s cubic-bezier(.22,1,.36,1) .70s both;}
+.s6{animation:floatUp .7s cubic-bezier(.22,1,.36,1) .82s both;}
+/* ── Particles canvas ── */
+#particles-canvas{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.55;}
+
+/* ── Landing preview cards ── */
+@keyframes cardFloat{0%,100%{transform:translateY(0) rotate(-1.5deg)}50%{transform:translateY(-10px) rotate(-1.5deg)}}
+@keyframes cardFloat2{0%,100%{transform:translateY(0) rotate(1.2deg)}50%{transform:translateY(-7px) rotate(1.2deg)}}
+@keyframes cardFloat3{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-12px) rotate(0deg)}}
+.preview-card-1{animation:cardFloat 4s ease-in-out infinite;}
+.preview-card-2{animation:cardFloat2 5s ease-in-out infinite .6s;}
+.preview-card-3{animation:cardFloat3 4.5s ease-in-out infinite 1.2s;}
+
+/* ── Tagline typewriter ── */
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.tagline-cursor{display:inline-block;width:2px;height:1em;background:var(--hl);margin-right:2px;animation:blink .7s ease-in-out infinite;vertical-align:middle;}
+
+/* ── Latest offer badge ── */
+@keyframes newBadgePulse{0%,100%{box-shadow:0 0 0 0 rgba(212,165,116,.4)}70%{box-shadow:0 0 0 8px rgba(212,165,116,0)}}
+.new-offer-badge{animation:newBadgePulse 2s ease-in-out infinite;}
+
+/* ── Stat counter animate ── */
+@keyframes statPop{0%{opacity:0;transform:scale(.7) translateY(10px)}70%{transform:scale(1.08)}100%{opacity:1;transform:scale(1) translateY(0)}}
+.stat-pop{animation:statPop .55s cubic-bezier(.34,1.56,.64,1) both;}
+
+/* ── Scroll indicator ── */
+@keyframes scrollBounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(6px)}}
+.scroll-indicator{position:absolute;bottom:1.8rem;left:50%;transform:translateX(-50%);animation:scrollBounce 1.8s ease-in-out infinite;color:rgba(212,165,116,.3);font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;white-space:nowrap;}
 /* ── Responsive ── */
 @media(max-width:640px){
+  .hide-mobile{display:none!important;}
+  /* Landing mobile tweaks */
+  .land-logo-wrap{width:96px!important;height:96px!important;}
+  /* Tighter padding on small screens */
+  .land-page-wrap{padding:1.2rem 1rem!important;}
+  /* Buttons full width on very small */
+  }
+@media(max-width:380px){
+  .land-btn-primary,.land-btn-ghost{width:100%;justify-content:center;}
+  #particles-canvas{display:none!important;}
   .nav-title{display:none;}
   .hero-stats{gap:1.2rem!important;}
   .grid-cards{grid-template-columns:1fr!important;}
@@ -172,6 +247,7 @@ input,select,textarea{outline:none;font-family:'Cairo',sans-serif;-webkit-appear
 </style>
 </head>
 <body>
+<canvas id="particles-canvas"></canvas>
 <div id="cursor"></div>
 <div id="cursor-ring"></div>
 <div id="root"></div>
@@ -189,6 +265,40 @@ window.WA_NUMBER="201277188784";// WhatsApp number for error alerts
   document.addEventListener('mouseup',()=>{c.classList.remove('ck');r.classList.remove('ck');});
 })();
 </script>
+
+<script>
+(function(){
+  const canvas=document.getElementById('particles-canvas');
+  if(!canvas)return;
+  // Disable particles on mobile to save battery
+  if(window.innerWidth<640){canvas.style.display='none';return;}
+  const ctx=canvas.getContext('2d');
+  let W,H,pts=[];
+  function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;}
+  resize();window.addEventListener('resize',resize);
+  function rand(a,b){return a+Math.random()*(b-a);}
+  for(let i=0;i<55;i++){pts.push({x:rand(0,1),y:rand(0,1),vx:rand(-.12,.12),vy:rand(-.08,.08),r:rand(.8,2.2),o:rand(.15,.5)});}
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    pts.forEach(p=>{
+      p.x+=p.vx/W*1.2;p.y+=p.vy/H*1.2;
+      if(p.x<0)p.x=1;if(p.x>1)p.x=0;
+      if(p.y<0)p.y=1;if(p.y>1)p.y=0;
+      ctx.beginPath();ctx.arc(p.x*W,p.y*H,p.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(212,165,116,${p.o})`;ctx.fill();
+    });
+    // draw faint connecting lines
+    for(let i=0;i<pts.length;i++){for(let j=i+1;j<pts.length;j++){
+      const dx=(pts[i].x-pts[j].x)*W,dy=(pts[i].y-pts[j].y)*H;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist<110){ctx.beginPath();ctx.moveTo(pts[i].x*W,pts[i].y*H);ctx.lineTo(pts[j].x*W,pts[j].y*H);ctx.strokeStyle=`rgba(212,165,116,${.06*(1-dist/110)})`;ctx.lineWidth=.6;ctx.stroke();}
+    }}
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+</script>
+
 <script type="text/babel">
 const{useState,useEffect,useRef,useMemo,useCallback}=React;
 const ADMIN="fares2388";
@@ -203,8 +313,25 @@ function isExp(d){if(!d)return false;return new Date(d)<new Date();}
 function fmtDate(d){if(!d)return"";return new Date(d).toLocaleDateString("ar-EG");}
 
 async function downloadImg(url,filename){
-  try{const res=await fetch(url);const blob=await res.blob();const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=filename;a.click();URL.revokeObjectURL(a.href);}
-  catch(e){window.open(url,"_blank");}
+  try{
+    // For Cloudinary URLs, add fl_attachment for direct download
+    let dlUrl=url;
+    if(url&&url.includes("cloudinary.com")){
+      dlUrl=url.replace("/upload/","/upload/fl_attachment/");
+    }
+    const res=await fetch(dlUrl,{mode:"cors"});
+    if(!res.ok)throw new Error("fetch failed");
+    const blob=await res.blob();
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=filename||"image.jpg";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(a.href);},200);
+  }catch(e){
+    // Fallback: open in new tab so user can long-press save
+    window.open(url,"_blank");
+  }
 }
 async function downloadAllAsZip(urls,accName,setZipping){
   setZipping(true);
@@ -226,6 +353,28 @@ async function uploadToCloudinary(file){
 function openWAError(errorMsg){
   const text=encodeURIComponent(`⚠️ عطل في موقع Rebranding:\n${errorMsg}\n\nالوقت: ${new Date().toLocaleString("ar-EG")}`);
   window.open(`https://wa.me/${WA}?text=${text}`,"_blank");
+}
+
+// WA expiry notification — send WhatsApp alert for offers expiring within N days
+const WA_NOTIF_KEY="rb_wa_notif_sent";
+function sendExpiryWAAlerts(offs,accs){
+  const today=new Date().toISOString().slice(0,10);
+  const sent=JSON.parse(localStorage.getItem(WA_NOTIF_KEY)||"{}");
+  const toAlert=offs.filter(o=>{
+    if(isExp(o.expiryDate))return false;
+    const dl=daysLeft(o.expiryDate);
+    if(dl===null||dl>3)return false;
+    const key=o.id+"_"+today;
+    return !sent[key];
+  });
+  if(!toAlert.length)return;
+  const accMap=Object.fromEntries(accs.map(a=>[a.id,a.name]));
+  const lines=toAlert.map(o=>`• ${o.title} (${accMap[o.accountId]||"—"}) — باقي ${daysLeft(o.expiryDate)} يوم`).join("\n");
+  const text=encodeURIComponent(`⏰ تنبيه عروض قريبة من الانتهاء:\n${lines}\n\nتاريخ: ${new Date().toLocaleDateString("ar-EG")}`);
+  window.open(`https://wa.me/${WA}?text=${text}`,"_blank");
+  // Mark as sent
+  toAlert.forEach(o=>{sent[o.id+"_"+today]=1;});
+  localStorage.setItem(WA_NOTIF_KEY,JSON.stringify(sent));
 }
 
 // Backup reminder check
@@ -332,6 +481,25 @@ function GalleryUp({images,onChange}){
 }
 
 /* ── Gallery View ── */
+/* ══ REPLY CARD (profile board — tap to copy) ══ */
+function ReplyCard({r}){
+  const[copied,setCopied]=useState(false);
+  function doCopy(e){
+    e&&e.stopPropagation();
+    navigator.clipboard.writeText(r.text||"").then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});
+  }
+  return(
+    <div className={"reply-board-card"+(copied?" copied":"")} onClick={doCopy}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:".55rem"}}>
+        <span style={{fontSize:".7rem",color:"var(--hl)",fontWeight:700,letterSpacing:".06em",textTransform:"uppercase"}}>{r.icon} {r.label}</span>
+        <span style={{fontSize:".65rem",fontWeight:600,fontFamily:"'Cairo',sans-serif",color:copied?"#4ade80":"var(--dim)",background:copied?"rgba(74,222,128,.1)":"rgba(255,255,255,.05)",border:`1px solid ${copied?"rgba(74,222,128,.25)":"rgba(255,255,255,.08)"}`,padding:".1rem .42rem",borderRadius:4,transition:"all .2s",minWidth:48,textAlign:"center"}}>{copied?"✅ تم":"📋 كوبي"}</span>
+      </div>
+      <div style={{fontSize:".83rem",color:"var(--text)",lineHeight:1.7,whiteSpace:"pre-wrap",background:"rgba(0,0,0,.18)",padding:".65rem .75rem",borderRadius:6,maxHeight:150,overflowY:"auto",userSelect:"text"}}>{r.text}</div>
+      {!copied&&<div style={{fontSize:".58rem",color:"rgba(255,255,255,.15)",textAlign:"center",marginTop:".35rem",letterSpacing:".05em"}}>اضغط في أي مكان للكوبي</div>}
+    </div>
+  );
+}
+
 function GalleryView({images,accName,onZoom}){
   const[zipping,setZipping]=useState(false);
   return(
@@ -410,7 +578,15 @@ function OCard({o,accName,adminMode=false,onRenew,onDelete}){
 
       {open&&(
         <div className="ocard-body" style={{padding:"0 1rem 1rem",borderTop:"1px solid var(--border)"}}>
-          {o.image&&<img src={o.image} style={{width:"100%",height:130,objectFit:"cover",borderRadius:6,marginBottom:".7rem",marginTop:".7rem"}} alt=""/>}
+          {o.image&&(
+            <div style={{position:"relative",marginTop:".7rem",marginBottom:".7rem"}}>
+              <img src={o.image} style={{width:"100%",height:130,objectFit:"cover",borderRadius:6,display:"block"}} alt=""/>
+              <button
+                onClick={e=>{e.stopPropagation();downloadImg(o.image,`${o.title||"offer"}.jpg`);}}
+                style={{position:"absolute",bottom:6,left:6,background:"rgba(0,0,0,.75)",border:"1px solid rgba(255,255,255,.18)",color:"#fff",padding:".2rem .55rem",borderRadius:5,fontSize:".68rem",fontWeight:600,fontFamily:"'Cairo',sans-serif",display:"flex",alignItems:"center",gap:".25rem",backdropFilter:"blur(4px)",minHeight:28}}
+              >⬇ حفظ</button>
+            </div>
+          )}
           {!o.image&&<div style={{height:".7rem"}}/>}
           {o.description&&<div style={{fontSize:".8rem",color:"var(--dim)",lineHeight:1.65,marginBottom:".55rem"}}>{o.description}</div>}
           {o.content&&(
@@ -435,13 +611,148 @@ function OCard({o,accName,adminMode=false,onRenew,onDelete}){
   );
 }
 
-/* ══ ACC CARD ══ */
-function AccCard({a,onClick,onShare}){
+/* ══ ACCOUNT PROFILE PAGE (full page via shared link) ══ */
+function AccountProfilePage({a,offs,onBack,onZoom,allAccs}){
+  const[tab,setTab]=useState("replies");
+  const accOffs=offs.filter(o=>o.accountId===a.id&&!isExp(o.expiryDate));
   const hasReplies=a.fixedReply||a.timesReply||a.contactReply||(a.extraReplies&&a.extraReplies.length>0);
+  const hasGallery=(a.galleryImages||[]).length>0;
+  const tabs=[
+    hasReplies&&{id:"replies",label:"📋 الردود"},
+    hasGallery&&{id:"gallery",label:"📸 الألبوم"},
+    accOffs.length>0&&{id:"offers",label:`🎁 العروض (${accOffs.length})`},
+    (a.links||[]).length>0&&{id:"links",label:"🔗 اللينكات"},
+  ].filter(Boolean);
+  if(tabs.length>0&&!tabs.find(t=>t.id===tab))setTab(tabs[0].id);
+
   return(
-    <div className="card" onClick={onClick} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,overflow:"hidden",animation:"fadeIn .3s ease"}}>
+    <div className="page-enter" style={{minHeight:"100vh",paddingBottom:"6rem"}}>
+
+      {/* ── COVER ── */}
+      <div style={{position:"relative",height:220,background:"linear-gradient(135deg,rgba(212,165,116,0.12),rgba(0,0,0,0.8))"}}>
+        {a.coverImage&&<img src={a.coverImage} style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute",inset:0}} alt=""/>}
+        <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom, transparent 40%, rgba(10,10,10,0.95) 100%)"}}/>
+        {/* Back btn */}
+        <button onClick={onBack} style={{position:"absolute",top:"calc(1rem + var(--safe-top))",right:"1rem",background:"rgba(10,10,10,0.7)",border:"1px solid rgba(255,255,255,0.12)",color:"var(--text)",padding:".38rem .85rem",borderRadius:8,fontSize:".8rem",fontWeight:600,fontFamily:"'Cairo',sans-serif",backdropFilter:"blur(10px)",minHeight:38,display:"flex",alignItems:"center",gap:".35rem"}}>← رجوع</button>
+      </div>
+
+      {/* ── PROFILE HEADER ── */}
+      <div style={{maxWidth:700,margin:"0 auto",padding:"0 1.2rem"}}>
+        {/* Avatar + name row */}
+        <div style={{display:"flex",alignItems:"flex-end",gap:"1rem",marginTop:-52,marginBottom:"1rem",position:"relative",zIndex:2}}>
+          {a.avatar
+            ?<img src={a.avatar} style={{width:90,height:90,borderRadius:"50%",border:"3px solid var(--hl)",objectFit:"cover",flexShrink:0,boxShadow:"0 0 0 4px rgba(212,165,116,.15),0 8px 24px rgba(0,0,0,.6)",background:"#111"}} alt=""/>
+            :<div style={{width:90,height:90,borderRadius:"50%",border:"3px solid var(--hl)",background:"rgba(212,165,116,.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"2rem",flexShrink:0,boxShadow:"0 0 0 4px rgba(212,165,116,.15)"}}>🏪</div>
+          }
+          <div style={{flex:1,paddingBottom:4}}>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:"clamp(1.2rem,4vw,1.6rem)",fontWeight:700,lineHeight:1.15,marginBottom:".25rem"}}>{a.name}</div>
+            <div style={{display:"flex",alignItems:"center",gap:".5rem",flexWrap:"wrap"}}>
+              <Badge s={a.status}/>
+              {a.category&&<span style={{fontSize:".66rem",color:"var(--dim)",background:"rgba(255,255,255,.04)",border:"1px solid var(--border)",padding:".06rem .45rem",borderRadius:4}}>{a.category}</span>}
+              {a.joinedDate&&<span style={{fontSize:".64rem",color:"var(--dim)"}}>· {fmtDate(a.joinedDate)}</span>}
+            </div>
+          </div>
+        </div>
+
+        {/* Description */}
+        {a.description&&<p style={{fontSize:".88rem",color:"var(--dim)",lineHeight:1.72,marginBottom:"1rem",borderRight:"2px solid rgba(212,165,116,.3)",paddingRight:".75rem"}}>{a.description}</p>}
+
+        {/* Tags */}
+        {(a.tags||[]).length>0&&<div style={{marginBottom:"1rem"}}>{a.tags.map(t=><Tag key={t} c={t}/>)}</div>}
+
+        {/* Stats bar */}
+        <div style={{display:"flex",gap:0,background:"rgba(255,255,255,.025)",border:"1px solid var(--border)",borderRadius:10,marginBottom:"1.2rem",overflow:"hidden"}}>
+          {[
+            hasReplies&&{icon:"📋",label:"ردود",val:(a.extraReplies||[]).length+[a.fixedReply,a.timesReply,a.contactReply].filter(Boolean).length},
+            hasGallery&&{icon:"📸",label:"صور",val:(a.galleryImages||[]).length},
+            accOffs.length>0&&{icon:"🎁",label:"عروض",val:accOffs.length},
+            (a.links||[]).length>0&&{icon:"🔗",label:"لينكات",val:(a.links||[]).length},
+          ].filter(Boolean).map((s,i,arr)=>(
+            <div key={i} style={{flex:1,textAlign:"center",padding:".7rem .4rem",borderLeft:i<arr.length-1?"1px solid var(--border)":"none"}}>
+              <div style={{fontSize:"1.1rem",fontWeight:700,color:"var(--hl)",fontFamily:"'Playfair Display',serif"}}>{s.val}</div>
+              <div style={{fontSize:".6rem",color:"var(--dim)",marginTop:".1rem",letterSpacing:".05em"}}>{s.icon} {s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Tabs */}
+        {tabs.length>1&&(
+          <div className="tab-bar" style={{marginBottom:"1.4rem"}}>
+            {tabs.map(t=><button key={t.id} className={"tab-btn"+(tab===t.id?" on":"")} onClick={()=>setTab(t.id)}>{t.label}</button>)}
+          </div>
+        )}
+
+        {/* ── REPLIES TAB ── */}
+        {tab==="replies"&&hasReplies&&(
+          <div style={{display:"grid",gap:".6rem",animation:"pageIn .25s ease"}}>
+            {a.fixedReply&&<ReplyCard r={{icon:"📌",label:"الرد الثابت",text:a.fixedReply}}/>}
+            {a.timesReply&&<ReplyCard r={{icon:"⏰",label:"المواعيد",text:a.timesReply}}/>}
+            {a.contactReply&&<ReplyCard r={{icon:"📞",label:"التواصل",text:a.contactReply}}/>}
+            {(a.extraReplies||[]).filter(r=>r.text).map((r,i)=><ReplyCard key={i} r={{icon:"💬",label:r.label||`رد ${i+1}`,text:r.text}}/>)}
+          </div>
+        )}
+
+        {/* ── GALLERY TAB ── */}
+        {tab==="gallery"&&hasGallery&&(
+          <div style={{animation:"pageIn .25s ease"}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:".55rem"}}>
+              {(a.galleryImages||[]).map((url,i)=>(
+                <div key={i} style={{position:"relative",borderRadius:8,overflow:"hidden",aspectRatio:"1",border:"1px solid var(--border)"}}>
+                  <img src={url} onClick={()=>onZoom(url)} style={{width:"100%",height:"100%",objectFit:"cover",cursor:"zoom-in",transition:"transform .25s"}} onMouseEnter={e=>e.target.style.transform="scale(1.04)"} onMouseLeave={e=>e.target.style.transform="scale(1)"} alt=""/>
+                  <button onClick={e=>{e.stopPropagation();downloadImg(url,`${a.name||"img"}_${i+1}.jpg`);}} style={{position:"absolute",bottom:5,left:5,background:"rgba(0,0,0,.75)",border:"1px solid rgba(255,255,255,.15)",color:"#fff",width:28,height:28,borderRadius:5,fontSize:".8rem",display:"flex",alignItems:"center",justifyContent:"center"}}>⬇</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── OFFERS TAB ── */}
+        {tab==="offers"&&accOffs.length>0&&(
+          <div style={{animation:"pageIn .25s ease"}}>
+            {accOffs.map(o=><OCard key={o.id} o={o}/>)}
+          </div>
+        )}
+
+        {/* ── LINKS TAB ── */}
+        {tab==="links"&&(a.links||[]).length>0&&(
+          <div style={{display:"grid",gap:".55rem",animation:"pageIn .25s ease"}}>
+            {(a.links||[]).map((l,i)=>(
+              <a key={i} href={l.url} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:".8rem",padding:".9rem 1rem",background:"rgba(255,255,255,.025)",border:"1px solid var(--border)",borderRadius:10,textDecoration:"none",color:"var(--text)",transition:"border-color .18s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(212,165,116,.3)"} onMouseLeave={e=>e.currentTarget.style.borderColor="var(--border)"}>
+                <span style={{fontSize:"1.2rem",width:30,textAlign:"center",flexShrink:0}}>{l.icon||"🔗"}</span>
+                <div style={{flex:1}}><div style={{fontWeight:600,fontSize:".88rem"}}>{l.label}</div><div style={{fontSize:".7rem",color:"var(--dim)",wordBreak:"break-all",marginTop:".15rem"}}>{l.url}</div></div>
+                <span style={{color:"var(--hl)",fontSize:".8rem",flexShrink:0}}>←</span>
+              </a>
+            ))}
+          </div>
+        )}
+
+        {/* Branding footer */}
+        <div style={{textAlign:"center",marginTop:"2.5rem",paddingTop:"1.5rem",borderTop:"1px solid var(--border)"}}>
+          <div style={{fontSize:".62rem",color:"rgba(255,255,255,.18)",letterSpacing:".18em",textTransform:"uppercase",fontFamily:"'Work Sans',sans-serif",marginBottom:".4rem"}}>Powered by</div>
+          <div className="made-by">Rebranding · Made by Fares Akram</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══ ACC CARD ══ */
+function AccCard({a,onClick,onShare,onTagClick}){
+  const[hover,setHover]=useState(false);
+  const hasReplies=a.fixedReply||a.timesReply||a.contactReply||(a.extraReplies&&a.extraReplies.length>0);
+  const allReplies=[
+    a.fixedReply&&{icon:"📌",label:"الرد الثابت",text:a.fixedReply},
+    a.timesReply&&{icon:"⏰",label:"المواعيد",text:a.timesReply},
+    a.contactReply&&{icon:"📞",label:"التواصل",text:a.contactReply},
+    ...(a.extraReplies||[]).filter(r=>r.text).map(r=>({icon:"💬",label:r.label,text:r.text})),
+  ].filter(Boolean);
+  return(
+    <div className="card" onClick={onClick} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,overflow:"hidden",animation:"fadeIn .3s ease",position:"relative"}}
+      onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}>
+      {/* Pin badge */}
+      {a.pinned&&<div className="pin-badge">📌 مثبت</div>}
       {a.coverImage
-        ?<div style={{height:138,overflow:"hidden"}}><img src={a.coverImage} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/></div>
+        ?<div style={{height:138,overflow:"hidden"}}><img src={a.coverImage} style={{width:"100%",height:"100%",objectFit:"cover",transition:"transform .4s"}} onMouseEnter={e=>e.target.style.transform="scale(1.04)"} onMouseLeave={e=>e.target.style.transform="scale(1)"} alt=""/></div>
         :<div style={{height:48,background:"linear-gradient(135deg,rgba(212,165,116,.07),transparent)"}}/>
       }
       <div style={{padding:".9rem"}}>
@@ -454,10 +765,14 @@ function AccCard({a,onClick,onShare}){
           <button onClick={e=>onShare(a,e)} style={{flexShrink:0,background:"rgba(212,165,116,.05)",border:"1px solid rgba(212,165,116,.16)",color:"rgba(212,165,116,.55)",width:32,height:32,borderRadius:6,fontSize:".8rem",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .18s",marginBottom:4}} onMouseEnter={e=>{e.currentTarget.style.background="rgba(212,165,116,.14)";e.currentTarget.style.color="var(--hl)";}} onMouseLeave={e=>{e.currentTarget.style.background="rgba(212,165,116,.05)";e.currentTarget.style.color="rgba(212,165,116,.55)";}}>🔗</button>
         </div>
         <div style={{fontSize:".78rem",color:"var(--dim)",lineHeight:1.62,marginBottom:".5rem"}}>{a.description}</div>
-        <div style={{marginBottom:".38rem"}}>{(a.tags||[]).map(t=><Tag key={t} c={t}/>)}</div>
+        <div style={{marginBottom:".38rem"}}>
+          {(a.tags||[]).map(t=>(
+            <span key={t} className="tag-btn" onClick={e=>{e.stopPropagation();onTagClick&&onTagClick(t);}}>{t}</span>
+          ))}
+        </div>
         <div style={{marginBottom:hasReplies?".55rem":"0"}}>{(a.links||[]).map(l=><Lnk key={l.label} l={l}/>)}</div>
         {hasReplies&&(
-          <div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:".28rem",flexWrap:"wrap",borderTop:"1px solid var(--border)",paddingTop:".5rem"}}>
+          <div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:".28rem",flexWrap:"wrap",borderTop:"1px solid var(--border)",paddingTop:".5rem",alignItems:"center"}}>
             {a.fixedReply&&<CopyBtn text={a.fixedReply} label="الرد الثابت" small/>}
             {a.timesReply&&<CopyBtn text={a.timesReply} label="المواعيد" small/>}
             {a.contactReply&&<CopyBtn text={a.contactReply} label="التواصل" small/>}
@@ -465,6 +780,22 @@ function AccCard({a,onClick,onShare}){
           </div>
         )}
       </div>
+      {/* Hover preview — desktop only */}
+      {hover&&allReplies.length>0&&(
+        <div className="acc-preview" onClick={e=>e.stopPropagation()}>
+          <div style={{fontSize:".62rem",color:"var(--hl)",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginBottom:".55rem"}}>⚡ ردود سريعة</div>
+          {allReplies.slice(0,3).map((r,i)=>(
+            <div key={i} style={{marginBottom:".45rem"}}>
+              <div style={{fontSize:".62rem",color:"var(--dim)",marginBottom:".18rem"}}>{r.icon} {r.label}</div>
+              <div style={{display:"flex",alignItems:"center",gap:".3rem"}}>
+                <div style={{flex:1,fontSize:".72rem",color:"var(--text)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",opacity:.85}}>{r.text?.split("\n")[0]}</div>
+                <CopyBtn text={r.text} label="" small/>
+              </div>
+            </div>
+          ))}
+          {allReplies.length>3&&<div style={{fontSize:".6rem",color:"var(--dim)",textAlign:"center",marginTop:".3rem"}}>+{allReplies.length-3} ردود أخرى — افتح الأكونت</div>}
+        </div>
+      )}
     </div>
   );
 }
@@ -499,33 +830,142 @@ function ExplainModal({onClose,isAdmin}){
 /* ══ LANDING ══ */
 function LandingPage({onEnter,onAdmin,accs,offs}){
   const activeOffs=offs.filter(o=>!isExp(o.expiryDate)).length;
+  const activeAccs=accs.filter(a=>a.status==="نشط").length;
+  const urgentOffs=offs.filter(o=>!isExp(o.expiryDate)&&daysLeft(o.expiryDate)!==null&&daysLeft(o.expiryDate)<=3).length;
+  const latestOff=offs.filter(o=>!isExp(o.expiryDate)).sort((a,b)=>b.id-a.id)[0];
+  const previewAccs=accs.filter(a=>a.status==="نشط").slice(0,3);
+
+  // Tagline typewriter
+  const TAGLINES=["الردود الجاهزة في ثانية ⚡","كل أكونت في مكان واحد 📁","العروض دايماً محدثة 🎁","شير مع فريقك بلينك واحد 🔗"];
+  const[tagIdx,setTagIdx]=React.useState(0);
+  const[tagText,setTagText]=React.useState("");
+  const[typing,setTyping]=React.useState(true);
+  React.useEffect(()=>{
+    const full=TAGLINES[tagIdx];
+    if(typing){
+      if(tagText.length<full.length){const t=setTimeout(()=>setTagText(full.slice(0,tagText.length+1)),60);return()=>clearTimeout(t);}
+      else{const t=setTimeout(()=>setTyping(false),1800);return()=>clearTimeout(t);}
+    }else{
+      if(tagText.length>0){const t=setTimeout(()=>setTagText(tagText.slice(0,-1)),30);return()=>clearTimeout(t);}
+      else{setTagIdx((tagIdx+1)%TAGLINES.length);setTyping(true);}
+    }
+  },[tagText,typing,tagIdx]);
+
+  // Animated counter
+  function AnimCounter({val,delay=0}){
+    const[n,setN]=React.useState(0);
+    React.useEffect(()=>{
+      if(!val)return;
+      const step=Math.ceil(val/24);let cur=0;
+      const t=setTimeout(()=>{
+        const iv=setInterval(()=>{cur=Math.min(cur+step,val);setN(cur);if(cur>=val)clearInterval(iv);},40);
+      },delay);
+      return()=>clearTimeout(t);
+    },[val]);
+    return <span className="stat-pop" style={{animationDelay:delay+"ms"}}>{n}</span>;
+  }
+
   return(
-    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",position:"relative",overflow:"hidden",padding:"2rem 1.5rem",paddingTop:"calc(2rem + var(--safe-top))"}}>
-      <div className="land-ring" style={{width:480,height:480,top:"50%",left:"50%",transform:"translate(-50%,-50%)"}}/>
-      <div className="land-ring" style={{width:680,height:680,top:"50%",left:"50%",transform:"translate(-50%,-50%)"}}/>
-      <div className="land-ring" style={{width:900,height:900,top:"50%",left:"50%",transform:"translate(-50%,-50%)"}}/>
-      <div style={{position:"absolute",top:"calc(1.5rem + var(--safe-top))",left:"1.5rem",fontSize:".58rem",color:"rgba(212,165,116,.22)",letterSpacing:".2em",textTransform:"uppercase",fontFamily:"'Work Sans',sans-serif"}}>Rebranding · Data Mod</div>
-      <div style={{textAlign:"center",zIndex:1,maxWidth:460}}>
-        <div className="land-logo" style={{width:125,height:125,borderRadius:"50%",overflow:"hidden",border:"2px solid rgba(212,165,116,.42)",margin:"0 auto 1.8rem"}}>
-          <img src={LOGO} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="logo" onError={e=>{e.target.style.display="none";e.target.parentNode.style.background="#111";e.target.parentNode.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2.4rem;font-weight:900;color:#d4a574;font-family:serif">RE</div>';}}/>
+    <div className="land-page-wrap" style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",position:"relative",overflow:"hidden",padding:"2rem 1.5rem",paddingTop:"calc(2rem + var(--safe-top))"}}>
+      {/* Decorative rings */}
+      <div className="land-ring" style={{width:500,height:500,top:"50%",left:"50%",transform:"translate(-50%,-50%)"}}/>
+      <div className="land-ring" style={{width:720,height:720,top:"50%",left:"50%",transform:"translate(-50%,-50%)"}}/>
+      <div className="land-ring" style={{width:960,height:960,top:"50%",left:"50%",transform:"translate(-50%,-50%)"}}/>
+
+      {/* Top label */}
+      <div style={{position:"absolute",top:"calc(1.5rem + var(--safe-top))",left:"1.5rem",fontSize:".55rem",color:"rgba(212,165,116,.2)",letterSpacing:".22em",textTransform:"uppercase",fontFamily:"'Work Sans',sans-serif"}}>Rebranding · Data Mod</div>
+
+      {/* Floating preview cards — desktop only */}
+      {previewAccs.length>0&&(
+        <div style={{position:"absolute",inset:0,pointerEvents:"none",overflow:"hidden"}} className="hide-mobile">
+          {previewAccs.map((a,i)=>(
+            <div key={a.id} className={`preview-card-${i+1}`} style={{
+              position:"absolute",
+              top:i===0?"18%":i===1?"55%":"30%",
+              left:i===0?"3%":i===2?"1%":"auto",
+              right:i===1?"2%":"auto",
+              width:170,
+              background:"rgba(255,255,255,.028)",
+              border:"1px solid rgba(212,165,116,.14)",
+              borderRadius:10,padding:".7rem",
+              backdropFilter:"blur(8px)",
+            }}>
+              <div style={{display:"flex",alignItems:"center",gap:".5rem",marginBottom:".4rem"}}>
+                {a.avatar
+                  ?<img src={a.avatar} style={{width:28,height:28,borderRadius:"50%",objectFit:"cover",border:"1px solid rgba(212,165,116,.3)",flexShrink:0}} alt=""/>
+                  :<div style={{width:28,height:28,borderRadius:"50%",background:"rgba(212,165,116,.1)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:".75rem"}}>🏪</div>
+                }
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:".7rem",fontWeight:700,color:"var(--text)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.name}</div>
+                  <div style={{fontSize:".55rem",color:"#4ade80",fontWeight:600}}>{a.status}</div>
+                </div>
+              </div>
+              {a.fixedReply&&<div style={{fontSize:".6rem",color:"var(--dim)",lineHeight:1.5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{a.fixedReply}</div>}
+            </div>
+          ))}
         </div>
-        <div style={{animation:"floatUp .7s ease both"}}>
-          <div style={{fontFamily:"'Playfair Display',serif",fontSize:"clamp(2.2rem,7vw,3.2rem)",fontWeight:700,lineHeight:1.1,marginBottom:".45rem"}}>Rebranding</div>
-          <div style={{fontSize:"clamp(.62rem,2.5vw,.76rem)",color:"var(--hl)",letterSpacing:".32em",textTransform:"uppercase",fontFamily:"'Work Sans',sans-serif",marginBottom:".3rem"}}>Marketing Agency</div>
-          <div style={{width:32,height:1,background:"rgba(212,165,116,.28)",margin:".85rem auto"}}/>
-          <div style={{fontSize:"clamp(.78rem,2.5vw,.88rem)",color:"var(--dim)",lineHeight:1.72,maxWidth:320,margin:"0 auto"}}>منصة إدارة أكونتات العملاء، الردود الجاهزة، والعروض</div>
+      )}
+
+      {/* Main content */}
+      <div style={{textAlign:"center",zIndex:1,maxWidth:480}}>
+
+        {/* Logo */}
+        <div className="s0">
+          <div className="land-logo land-logo-wrap" style={{width:118,height:118,borderRadius:"50%",overflow:"hidden",border:"2px solid rgba(212,165,116,.42)",margin:"0 auto 1.6rem",boxShadow:"0 0 40px rgba(212,165,116,.12)"}}>
+            <img src={LOGO} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="logo" onError={e=>{e.target.style.display="none";e.target.parentNode.style.background="#111";e.target.parentNode.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2.2rem;font-weight:900;color:#d4a574;font-family:serif">RE</div>';}}/>
+          </div>
         </div>
-        <div style={{display:"flex",justifyContent:"center",gap:"2.2rem",margin:"1.8rem 0",animation:"floatUp .7s .2s ease both"}}>
-          <div style={{textAlign:"center"}}><div style={{fontSize:"2rem",fontWeight:700,color:"var(--hl)",fontFamily:"'Playfair Display',serif",lineHeight:1}}>{accs.length}</div><div style={{fontSize:".58rem",color:"var(--dim)",letterSpacing:".18em",textTransform:"uppercase",marginTop:".28rem"}}>أكونت</div></div>
-          <div style={{width:1,background:"rgba(255,255,255,.07)"}}/>
-          <div style={{textAlign:"center"}}><div style={{fontSize:"2rem",fontWeight:700,color:"var(--hl)",fontFamily:"'Playfair Display',serif",lineHeight:1}}>{activeOffs}</div><div style={{fontSize:".58rem",color:"var(--dim)",letterSpacing:".18em",textTransform:"uppercase",marginTop:".28rem"}}>عرض نشط</div></div>
+
+        {/* Title */}
+        <div className="s1">
+          <div style={{fontFamily:"'Playfair Display',serif",fontSize:"clamp(2.4rem,7vw,3.4rem)",fontWeight:700,lineHeight:1.08,marginBottom:".3rem",letterSpacing:"-.01em"}}>Rebranding</div>
+          <div style={{fontSize:"clamp(.58rem,2vw,.7rem)",color:"var(--hl)",letterSpacing:".35em",textTransform:"uppercase",fontFamily:"'Work Sans',sans-serif"}}>Marketing Agency</div>
+          <div style={{width:28,height:1,background:"rgba(212,165,116,.25)",margin:".9rem auto"}}/>
         </div>
-        <div style={{display:"flex",gap:".85rem",justifyContent:"center",flexWrap:"wrap",animation:"floatUp .7s .35s ease both"}}>
+
+        {/* Tagline typewriter */}
+        <div className="s2" style={{marginBottom:"1.6rem",minHeight:"1.6rem"}}>
+          <span style={{fontSize:"clamp(.82rem,2.8vw,.95rem)",color:"var(--dim)",fontFamily:"'Cairo',sans-serif"}}>{tagText}<span className="tagline-cursor"/></span>
+        </div>
+
+        {/* Stats — 4 stats */}
+        <div className="s3" style={{display:"grid",gridTemplateColumns:"1fr 1fr",margin:"0 0 1.6rem",background:"rgba(255,255,255,.025)",border:"1px solid rgba(255,255,255,.06)",borderRadius:12,overflow:"hidden"}}>
+          {[
+            {val:accs.length,label:"أكونت",delay:300},
+            {val:activeAccs,label:"نشط",delay:400,color:"#4ade80"},
+            {val:activeOffs,label:"عرض",delay:500},
+            {val:urgentOffs,label:"ينتهي قريب",delay:600,color:urgentOffs>0?"#fbbf24":undefined},
+          ].map((s,i,arr)=>(
+            <div key={i} style={{flex:1,textAlign:"center",padding:".75rem .4rem",borderLeft:i<arr.length-1?"1px solid rgba(255,255,255,.05)":"none"}}>
+              <div style={{fontSize:"1.5rem",fontWeight:700,color:s.color||"var(--hl)",fontFamily:"'Playfair Display',serif",lineHeight:1}}><AnimCounter val={s.val} delay={s.delay}/></div>
+              <div style={{fontSize:".52rem",color:"var(--dim)",letterSpacing:".1em",textTransform:"uppercase",marginTop:".22rem",lineHeight:1.2}}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Latest offer badge */}
+        {latestOff&&(
+          <div className="s4" style={{marginBottom:"1.3rem"}}>
+            <div className="new-offer-badge" style={{display:"inline-flex",alignItems:"center",gap:".5rem",padding:".42rem 1rem",borderRadius:30,background:"rgba(212,165,116,.08)",border:"1px solid rgba(212,165,116,.22)",cursor:"pointer"}} onClick={onEnter}>
+              <span style={{fontSize:".6rem",fontWeight:900,background:"var(--hl)",color:"#0a0a0a",padding:".1rem .38rem",borderRadius:3,letterSpacing:".06em",textTransform:"uppercase",flexShrink:0}}>جديد</span>
+              <span style={{fontSize:".75rem",color:"var(--text)",fontWeight:600,maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{latestOff.title}</span>
+              <span style={{fontSize:".7rem",color:"var(--hl)",flexShrink:0}}>←</span>
+            </div>
+          </div>
+        )}
+
+        {/* CTA buttons */}
+        <div className="s5" style={{display:"flex",gap:".8rem",justifyContent:"center",flexWrap:"wrap"}}>
           <button className="land-btn-primary" onClick={onEnter}>استعرض الأكونتات ←</button>
           <button className="land-btn-ghost" onClick={onAdmin}>🛠️ الإدارة</button>
         </div>
-        <div style={{marginTop:"1.8rem",animation:"floatUp .7s .48s ease both"}}><div className="made-by">Made by Fares Akram</div></div>
+
+        {/* Made by */}
+        <div className="s6" style={{marginTop:"1.6rem"}}><div className="made-by">Made by Fares Akram</div></div>
       </div>
+
+      {/* Scroll hint */}
+      <div className="scroll-indicator">↓ scroll</div>
     </div>
   );
 }
@@ -583,7 +1023,11 @@ function App(){
   const[showExplain,setShowExplain]=useState(false);
   const[undoData,setUndoData]=useState(null);
   const[showBackupReminder,setShowBackupReminder]=useState(false);
+  const[adminSearch,setAdminSearch]=useState("");
   const[renewOffer,setRenewOffer]=useState(null);// offer being renewed
+  const[profileAcc,setProfileAcc]=useState(null);// full-page profile (shared link)
+  const[showQR,setShowQR]=useState(null);// acc for QR modal
+  const[filterPinned,setFilterPinned]=useState(false);
 
   // Acc form
   const EA={name:"",category:"مطاعم",avatar:"",coverImage:"",description:"",tags:"",status:"نشط",joinedDate:"",fixedReply:"",timesReply:"",contactReply:"",extraReplies:[],galleryImages:[]};
@@ -621,10 +1065,12 @@ function App(){
       if(!loaded){
         loaded=true;setLoad(false);
         const hash=decodeURIComponent(window.location.hash.slice(1));
-        if(hash){const found=list.find(a=>a.id===hash||a.name===hash);if(found){setSelA(found);setView("pub");}}
+        if(hash){const found=list.find(a=>a.id===hash||a.name===hash);if(found){setProfileAcc(found);setView("pub");}}
+        // Keep profile in sync when data updates
+        setProfileAcc(prev=>prev?list.find(a=>a.id===prev.id)||prev:null);
       }
     },err=>{setFbError(err.message);setLoad(false);});
-    const u2=fb.onSnapshot(fb.collection(fb.db,"offers"),s=>{setOffs(s.docs.map(d=>({...d.data(),id:d.id})));});
+    const u2=fb.onSnapshot(fb.collection(fb.db,"offers"),s=>{const list=s.docs.map(d=>({...d.data(),id:d.id}));setOffs(list);});
     // Backup reminder
     if(checkBackupReminder())setShowBackupReminder(true);
     return()=>{u1();u2();};
@@ -634,8 +1080,12 @@ function App(){
 
   /* ── Share / deep link ── */
   function shareAcc(a,e){e&&e.stopPropagation();const url=window.location.href.split("#")[0]+"#"+encodeURIComponent(a.id);navigator.clipboard.writeText(url).then(()=>msg("🔗 تم كوبي اللينك!"));}
+  // openAcc: inside the site (modal), used by admin modal
   function openAcc(a){setSelA(a);window.location.hash=encodeURIComponent(a.id);}
   function closeAcc(){setSelA(null);history.pushState("","",window.location.pathname+window.location.search);}
+  // openProfile: full page (from card click in public view OR from shared link)
+  function openProfile(a){setProfileAcc(a);setView("pub");window.location.hash=encodeURIComponent(a.id);}
+  function closeProfile(){setProfileAcc(null);history.pushState("","",window.location.pathname+window.location.search);}
 
   /* ── Undo delete ── */
   function scheduleDelete(type,id,data){
@@ -694,6 +1144,22 @@ function App(){
     catch(e){alert(e.message);}setBusy(false);
   }
 
+  /* ── Duplicate account ── */
+  async function dupAcc(a){
+    const fb=window.__fb;
+    const newId=String(Date.now());
+    const newAcc={...a,id:newId,name:a.name+" (نسخة)",pinned:false,updatedAt:new Date().toISOString()};
+    try{await fb.setDoc(fb.doc(fb.db,"accounts",newId),newAcc);msg("✅ تم عمل نسخة من الأكونت");}
+    catch(e){alert(e.message);}
+  }
+
+  /* ── Toggle pin ── */
+  async function togglePin(a){
+    const fb=window.__fb;
+    try{await fb.setDoc(fb.doc(fb.db,"accounts",a.id),{...a,pinned:!a.pinned,updatedAt:new Date().toISOString()});msg(a.pinned?"📌 تم إلغاء التثبيت":"📌 تم التثبيت");}
+    catch(e){alert(e.message);}
+  }
+
   /* ── Offer form ── */
   function openOF(o=null){if(o){setOf(o);setEOid(o.id);}else{setOf(EO);setEOid(null);}setShowOF(true);}
   async function saveOff(){
@@ -710,11 +1176,13 @@ function App(){
 
   const fAccs=useMemo(()=>{
     let list=cat==="كل شيء"?accs:accs.filter(a=>a.category===cat);
+    if(filterPinned)list=list.filter(a=>a.pinned);
     if(search.trim()){const q=search.trim().toLowerCase();list=list.filter(a=>(a.name||"").toLowerCase().includes(q)||(a.description||"").toLowerCase().includes(q)||(a.tags||[]).some(t=>t.toLowerCase().includes(q)));}
     if(sort==="alpha")list=[...list].sort((a,b)=>(a.name||"").localeCompare(b.name||"","ar"));
     else if(sort==="oldest")list=[...list].sort((a,b)=>a.id-b.id);
+    else list=[...list].sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)||b.id-a.id);
     return list;
-  },[accs,cat,search,sort]);
+  },[accs,cat,search,sort,filterPinned]);
 
   const fOffs=useMemo(()=>{
     // Public: hide expired
@@ -795,7 +1263,7 @@ function App(){
       </nav>
 
       {/* ═══════════════ PUBLIC ═══════════════ */}
-      {view==="pub"&&(
+      {view==="pub"&&!profileAcc&&(
         <div className="page-enter" style={{maxWidth:1100,margin:"0 auto",padding:"1.8rem 1.1rem"}}>
           <div style={{textAlign:"center",padding:"2.2rem 1rem 1.8rem",borderBottom:"1px solid var(--border)",marginBottom:"2.2rem"}}>
             <div style={{width:92,height:92,borderRadius:"50%",margin:"0 auto .9rem",overflow:"hidden",border:"2px solid rgba(212,165,116,.38)",boxShadow:"0 0 28px rgba(212,165,116,.12)"}}>
@@ -828,12 +1296,13 @@ function App(){
           </div>
 
           {ptab==="accs"&&<>
-            <div style={{display:"flex",gap:".38rem",flexWrap:"wrap",marginBottom:"1.1rem"}}>
-              {CATS.map(c=><button key={c} onClick={()=>setCat(c)} style={{padding:".28rem .85rem",borderRadius:22,border:"1px solid",fontWeight:500,fontSize:".75rem",fontFamily:"'Cairo',sans-serif",borderColor:cat===c?"var(--hl)":"var(--border)",background:cat===c?"rgba(212,165,116,.1)":"transparent",color:cat===c?"var(--hl)":"var(--dim)",transition:"all .18s",minHeight:38}}>{c}</button>)}
+            <div style={{display:"flex",gap:".38rem",flexWrap:"wrap",marginBottom:"1.1rem",alignItems:"center"}}>
+              {CATS.map(cc=><button key={cc} onClick={()=>setCat(cc)} style={{padding:".28rem .85rem",borderRadius:22,border:"1px solid",fontWeight:500,fontSize:".75rem",fontFamily:"'Cairo',sans-serif",borderColor:cat===cc?"var(--hl)":"var(--border)",background:cat===cc?"rgba(212,165,116,.1)":"transparent",color:cat===cc?"var(--hl)":"var(--dim)",transition:"all .18s",minHeight:38}}>{cc}</button>)}
+              {accs.some(a=>a.pinned)&&<button onClick={()=>setFilterPinned(!filterPinned)} style={{padding:".28rem .85rem",borderRadius:22,border:`1px solid ${filterPinned?"var(--hl)":"var(--border)"}`,fontWeight:600,fontSize:".75rem",fontFamily:"'Cairo',sans-serif",background:filterPinned?"rgba(212,165,116,.1)":"transparent",color:filterPinned?"var(--hl)":"var(--dim)",transition:"all .18s",minHeight:38}}>📌 المثبتة</button>}
             </div>
             {load?<SkeletonCards/>:fAccs.length===0?<div style={{textAlign:"center",color:"var(--dim)",padding:"3rem"}}>🔍 لا توجد نتائج</div>:
               <div className="grid-cards" style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:"1rem"}}>
-                {fAccs.map(a=><AccCard key={a.id} a={a} onClick={()=>openAcc(a)} onShare={shareAcc}/>)}
+                {fAccs.map(a=><AccCard key={a.id} a={a} onClick={()=>openProfile(a)} onShare={shareAcc} onTagClick={t=>{setSearch(t);setPtab('accs');}}/>)}
               </div>}
           </>}
 
@@ -844,6 +1313,17 @@ function App(){
               </div>}
           </>}
         </div>
+      )}
+
+      {/* ═══════════════ PROFILE PAGE (full screen from shared link) ═══════════════ */}
+      {profileAcc&&view==="pub"&&(
+        <AccountProfilePage
+          a={profileAcc}
+          offs={offs}
+          onBack={closeProfile}
+          onZoom={setLightImg}
+          allAccs={accs}
+        />
       )}
 
       {/* ═══════════════ LOGIN ═══════════════ */}
@@ -883,22 +1363,35 @@ function App(){
                 📥 Import JSON
                 <input ref={importRef} type="file" accept=".json" style={{display:"none"}} onChange={handleImportFile}/>
               </label>
+              {offs.filter(o=>!isExp(o.expiryDate)&&daysLeft(o.expiryDate)!==null&&daysLeft(o.expiryDate)<=3).length>0&&(
+                <button onClick={()=>sendExpiryWAAlerts(offs,accs)} style={{display:"inline-flex",alignItems:"center",gap:".28rem",padding:".34rem .8rem",borderRadius:4,border:"1px solid rgba(37,211,102,.3)",background:"rgba(37,211,102,.07)",color:"#25D366",fontFamily:"'Cairo',sans-serif",fontSize:".72rem",fontWeight:600,minHeight:36,animation:"waBounce 1s ease 1"}}>💬 إرسال تنبيه واتساب</button>
+              )}
             </div>
           </div>
 
           <div className="tab-bar">
-            <button className={"tab-btn"+(atab==="accs"?" on":"")} onClick={()=>setAtab("accs")}>{`📁 الأكونتات (${accs.length})`}</button>
-            <button className={"tab-btn"+(atab==="offs"?" on":"")} onClick={()=>setAtab("offs")}>{`🎁 العروض (${offs.filter(o=>!isExp(o.expiryDate)).length} نشط / ${expiredOffs.length} منتهي)${urgentCount>0?" ⚠️":""}`}</button>
+            <button className={"tab-btn"+(atab==="accs"?" on":"")} onClick={()=>{setAtab("accs");setAdminSearch("");}}>{`📁 الأكونتات (${accs.length})`}</button>
+            <button className={"tab-btn"+(atab==="offs"?" on":"")} onClick={()=>{setAtab("offs");setAdminSearch("");}}>{`🎁 العروض (${offs.filter(o=>!isExp(o.expiryDate)).length} نشط / ${expiredOffs.length} منتهي)${urgentCount>0?" ⚠️":""}`}</button>
           </div>
 
           {atab==="accs"&&<>
-            <button className="bh" onClick={()=>openAF()} style={{...S.pBtn,marginBottom:"1rem"}}>+ أضف أكونت</button>
+            <div style={{display:"flex",gap:".6rem",marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
+              <button className="bh" onClick={()=>openAF()} style={{...S.pBtn,flexShrink:0}}>+ أضف أكونت</button>
+              <div className="search-wrap" style={{flex:1,minWidth:180}}>
+                <span className="search-icon">🔍</span>
+                <input placeholder="ابحث في الأكونتات..." value={adminSearch} onChange={e=>setAdminSearch(e.target.value)} style={{paddingRight:"2.2rem"}}/>
+              </div>
+              {adminSearch&&<span style={{fontSize:".7rem",color:"var(--dim)"}}>{accs.filter(a=>(a.name||"").toLowerCase().includes(adminSearch.toLowerCase())||(a.description||"").toLowerCase().includes(adminSearch.toLowerCase())||(a.category||"").toLowerCase().includes(adminSearch.toLowerCase())).length} نتيجة</span>}
+            </div>
             <div style={{display:"grid",gap:".55rem"}}>
-              {accs.map(a=>(
+              {accs.filter(a=>!adminSearch.trim()||(a.name||"").toLowerCase().includes(adminSearch.toLowerCase())||(a.description||"").toLowerCase().includes(adminSearch.toLowerCase())||(a.category||"").toLowerCase().includes(adminSearch.toLowerCase())||(a.tags||[]).some(t=>t.toLowerCase().includes(adminSearch.toLowerCase()))).map(a=>(
                 <div key={a.id} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,display:"flex",alignItems:"center",gap:".85rem",padding:".75rem .9rem",flexWrap:"wrap",transition:"border-color .18s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(212,165,116,.18)"} onMouseLeave={e=>e.currentTarget.style.borderColor="var(--border)"}>
                   {a.avatar&&<img src={a.avatar} style={{width:40,height:40,borderRadius:"50%",objectFit:"cover",border:"1px solid rgba(212,165,116,.2)"}} alt=""/>}
                   <div style={{flex:1,minWidth:120}}><div style={{fontWeight:700,fontFamily:"'Playfair Display',serif"}}>{a.name}</div><div style={{fontSize:".7rem",color:"var(--dim)"}}>{a.category} · {a.links?.length||0} لينكات · {(a.galleryImages||[]).length} صورة · {(a.extraReplies||[]).length} ردود إضافية</div></div>
                   <Badge s={a.status}/>
+                  <button className="bh" title={a.pinned?"إلغاء التثبيت":"تثبيت فوق"} onClick={()=>togglePin(a)} style={{padding:".3rem .65rem",borderRadius:4,border:`1px solid ${a.pinned?"rgba(212,165,116,.4)":"var(--border)"}`,fontWeight:600,fontSize:".72rem",fontFamily:"'Cairo',sans-serif",background:a.pinned?"rgba(212,165,116,.12)":"rgba(255,255,255,.04)",color:a.pinned?"var(--hl)":"var(--dim)",minHeight:36}}>📌</button>
+                  <button className="bh" title="QR Code" onClick={()=>setShowQR(a)} style={{padding:".3rem .65rem",borderRadius:4,border:"1px solid var(--border)",fontWeight:600,fontSize:".72rem",fontFamily:"'Cairo',sans-serif",background:"rgba(255,255,255,.04)",color:"var(--dim)",minHeight:36}}>◻️</button>
+                  <button className="bh" title="نسخة" onClick={()=>dupAcc(a)} style={{padding:".3rem .65rem",borderRadius:4,border:"1px solid rgba(212,165,116,.2)",fontWeight:600,fontSize:".72rem",fontFamily:"'Cairo',sans-serif",background:"rgba(212,165,116,.04)",color:"var(--hl)",minHeight:36}}>⧉</button>
                   <button className="bh" onClick={()=>openAF(a)} style={{padding:".3rem .65rem",borderRadius:4,border:"1px solid var(--border)",fontWeight:600,fontSize:".72rem",fontFamily:"'Cairo',sans-serif",background:"rgba(255,255,255,.04)",color:"var(--dim)",minHeight:36}}>✏️</button>
                   <button className="bh" onClick={()=>delAcc(a.id)} style={{padding:".3rem .65rem",borderRadius:4,border:"1px solid rgba(239,68,68,.2)",fontWeight:600,fontSize:".72rem",fontFamily:"'Cairo',sans-serif",background:"rgba(239,68,68,.05)",color:"#f87171",minHeight:36}}>🗑️</button>
                 </div>
@@ -907,14 +1400,21 @@ function App(){
           </>}
 
           {atab==="offs"&&<>
-            <button className="bh" onClick={()=>openOF()} style={{...S.pBtn,marginBottom:"1rem"}}>+ أضف عرض</button>
+            <div style={{display:"flex",gap:".6rem",marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
+              <button className="bh" onClick={()=>openOF()} style={{...S.pBtn,flexShrink:0}}>+ أضف عرض</button>
+              <div className="search-wrap" style={{flex:1,minWidth:180}}>
+                <span className="search-icon">🔍</span>
+                <input placeholder="ابحث في العروض..." value={adminSearch} onChange={e=>setAdminSearch(e.target.value)} style={{paddingRight:"2.2rem"}}/>
+              </div>
+              {adminSearch&&<span style={{fontSize:".7rem",color:"var(--dim)"}}>{offs.filter(o=>(o.title||"").toLowerCase().includes(adminSearch.toLowerCase())||(o.description||"").toLowerCase().includes(adminSearch.toLowerCase())||((accs.find(a=>a.id===o.accountId)?.name)||"").toLowerCase().includes(adminSearch.toLowerCase())).length} نتيجة</span>}
+            </div>
 
             {/* Active offers */}
-            {offs.filter(o=>!isExp(o.expiryDate)).length>0&&(
+            {offs.filter(o=>!isExp(o.expiryDate)&&(!adminSearch.trim()||(o.title||"").toLowerCase().includes(adminSearch.toLowerCase())||(o.description||"").toLowerCase().includes(adminSearch.toLowerCase())||((accs.find(a=>a.id===o.accountId)?.name)||"").toLowerCase().includes(adminSearch.toLowerCase()))).length>0&&(
               <div style={{marginBottom:"1.4rem"}}>
                 <div style={{fontSize:".7rem",color:"#4ade80",letterSpacing:".1em",textTransform:"uppercase",marginBottom:".55rem",fontWeight:600}}>✓ العروض النشطة</div>
                 <div style={{display:"grid",gap:".5rem"}}>
-                  {offs.filter(o=>!isExp(o.expiryDate)).map(o=>{
+                  {offs.filter(o=>!isExp(o.expiryDate)&&(!adminSearch.trim()||(o.title||"").toLowerCase().includes(adminSearch.toLowerCase())||(o.description||"").toLowerCase().includes(adminSearch.toLowerCase())||((accs.find(a=>a.id===o.accountId)?.name)||"").toLowerCase().includes(adminSearch.toLowerCase()))).map(o=>{
                     const a=accs.find(x=>x.id===o.accountId),dl=daysLeft(o.expiryDate),urg=dl!==null&&dl<=3;
                     return(
                       <div key={o.id} style={{background:"var(--card)",border:`1px solid ${urg?"rgba(251,191,36,.28)":"var(--border)"}`,borderRadius:8,display:"flex",alignItems:"center",gap:".85rem",padding:".75rem .9rem",flexWrap:"wrap"}}>
@@ -930,11 +1430,11 @@ function App(){
             )}
 
             {/* Expired offers — admin only section */}
-            {expiredOffs.length>0&&(
+            {expiredOffs.filter(o=>!adminSearch.trim()||(o.title||"").toLowerCase().includes(adminSearch.toLowerCase())||(o.description||"").toLowerCase().includes(adminSearch.toLowerCase())||((accs.find(a=>a.id===o.accountId)?.name)||"").toLowerCase().includes(adminSearch.toLowerCase())).length>0&&(
               <div>
                 <div style={{fontSize:".7rem",color:"#f87171",letterSpacing:".1em",textTransform:"uppercase",marginBottom:".55rem",fontWeight:600}}>⏰ العروض المنتهية (مخفية عن الزوار)</div>
                 <div style={{maxWidth:680}}>
-                  {expiredOffs.map(o=>(
+                  {expiredOffs.filter(o=>!adminSearch.trim()||(o.title||"").toLowerCase().includes(adminSearch.toLowerCase())||(o.description||"").toLowerCase().includes(adminSearch.toLowerCase())||((accs.find(a=>a.id===o.accountId)?.name)||"").toLowerCase().includes(adminSearch.toLowerCase())).map(o=>(
                     <OCard key={o.id} o={o} accName={accs.find(a=>a.id===o.accountId)?.name} adminMode={true} onRenew={()=>setRenewOffer(o.id)} onDelete={()=>delOff(o.id)}/>
                   ))}
                 </div>
@@ -953,6 +1453,7 @@ function App(){
               {selA.avatar&&<img src={selA.avatar} style={{width:56,height:56,borderRadius:"50%",border:"2px solid var(--hl)",objectFit:"cover"}} alt=""/>}
               <div style={{flex:1}}><div style={{fontSize:"1.15rem",fontWeight:700,fontFamily:"'Playfair Display',serif"}}>{selA.name}</div><div style={{color:"var(--dim)",fontSize:".7rem"}}>{selA.category}{selA.joinedDate&&" · "+fmtDate(selA.joinedDate)}</div></div>
               <button onClick={e=>shareAcc(selA,e)} style={{background:"rgba(212,165,116,.07)",border:"1px solid rgba(212,165,116,.22)",color:"var(--hl)",padding:".3rem .68rem",borderRadius:6,fontSize:".74rem",fontWeight:600,fontFamily:"'Cairo',sans-serif",display:"flex",alignItems:"center",gap:".28rem",minHeight:36}}>🔗 شارك</button>
+              <button onClick={e=>{e.stopPropagation();setShowQR(selA);}} style={{background:"rgba(255,255,255,.04)",border:"1px solid var(--border)",color:"var(--dim)",padding:".3rem .68rem",borderRadius:6,fontSize:".74rem",fontWeight:600,fontFamily:"'Cairo',sans-serif",display:"flex",alignItems:"center",gap:".28rem",minHeight:36}}>◻️ QR</button>
             </div>
             <div style={{color:"var(--dim)",lineHeight:1.68,marginBottom:".85rem",fontSize:".85rem"}}>{selA.description}</div>
             {selA.links?.length>0&&<div style={{marginBottom:".85rem"}}><div style={{fontWeight:600,marginBottom:".38rem",fontSize:".7rem",letterSpacing:".08em",textTransform:"uppercase",color:"var(--dim)"}}>اللينكات</div>{selA.links.map(l=><Lnk key={l.label} l={l}/>)}</div>}
@@ -977,6 +1478,27 @@ function App(){
               <div><div style={{fontWeight:600,marginBottom:".6rem",fontSize:".7rem",letterSpacing:".08em",textTransform:"uppercase",color:"var(--dim)"}}>العروض</div>{offs.filter(o=>o.accountId===selA.id&&!isExp(o.expiryDate)).map(o=><OCard key={o.id} o={o}/>)}</div>
             )}
             <div style={{textAlign:"center",marginTop:"1.2rem"}}><button onClick={closeAcc} style={S.ghost}>إغلاق</button></div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════ QR MODAL ═══════════════ */}
+      {showQR&&(
+        <div className="modal-overlay" onClick={()=>setShowQR(null)}>
+          <div className="modal-box" style={{background:"#0f0f0f",border:"1px solid rgba(212,165,116,.2)",borderRadius:14,padding:"1.6rem",maxWidth:320,textAlign:"center"}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1rem",marginBottom:".4rem"}}>{showQR.name}</div>
+            <div style={{fontSize:".7rem",color:"var(--dim)",marginBottom:"1rem"}}>امسح الـ QR للدخول المباشر للأكونت</div>
+            <div style={{display:"flex",justifyContent:"center",marginBottom:"1rem"}}>
+              <div className="qr-wrap">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(window.location.href.split("#")[0]+"#"+encodeURIComponent(showQR.id))}`}
+                  style={{width:180,height:180,display:"block",borderRadius:4}}
+                  alt="QR Code"
+                />
+              </div>
+            </div>
+            <button onClick={()=>{const url=window.location.href.split("#")[0]+"#"+encodeURIComponent(showQR.id);navigator.clipboard.writeText(url).then(()=>msg("🔗 تم كوبي اللينك!"));}} style={{...S.pBtn,width:"100%",marginBottom:".5rem"}}>🔗 كوبي اللينك</button>
+            <button onClick={()=>setShowQR(null)} style={{...S.ghost,width:"100%"}}>إغلاق</button>
           </div>
         </div>
       )}
