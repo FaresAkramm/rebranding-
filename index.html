@@ -863,7 +863,7 @@ async function askGemini(sysprompt,history,maxTok){
     var msgs=[{role:"system",content:prompt}];
     hist.forEach(function(m){msgs.push({role:m.r==="user"?"user":"assistant",content:m.t});});
     var model=prompt.includes("Available information about [")?"llama-3.3-70b-versatile":"llama-3.1-8b-instant";
-  var res=await fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_KEY},body:JSON.stringify({model:model,messages:msgs,max_tokens:tok||500,temperature:0.3})});
+  var res=await fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_KEY},body:JSON.stringify({model:model,messages:msgs,max_tokens:tok||500,temperature:0})});
     if(!res.ok){var e=await res.json();throw new Error(e&&e.error&&e.error.message||"error");}
     var d=await res.json();
     return (d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content)||"";
