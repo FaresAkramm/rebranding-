@@ -334,7 +334,7 @@ const BACKUP_REMINDER_KEY="rb_last_backup";
 
 /* ── Helpers ── */
 function daysLeft(d){if(!d)return null;return Math.ceil((new Date(d)-new Date())/86400000);}
-function isExp(d){if(!d)return false;return new Date(d)<new Date();}
+function isExp(d){if(!d)return false;var dl=Math.ceil((new Date(d)-new Date())/86400000);return dl<-1;}
 function fmtDate(d){if(!d)return"";return new Date(d).toLocaleDateString("ar-EG");}
 
 async function downloadImg(url,filename){
@@ -645,11 +645,13 @@ function AccountProfilePage({a,offs,onBack,onZoom,allAccs}){
   const accOffs=offs.filter(o=>o.accountId===a.id&&!isExp(o.expiryDate));
   const hasReplies=a.fixedReply||a.timesReply||a.contactReply||(a.extraReplies&&a.extraReplies.length>0);
   const hasGallery=(a.galleryImages||[]).length>0;
+  const qaList=(a.trainedQA||[]).filter(function(q){return q.q&&q.a;});
   const tabs=[
     hasReplies&&{id:"replies",label:"📋 الردود"},
     hasGallery&&{id:"gallery",label:"📸 الألبوم"},
     accOffs.length>0&&{id:"offers",label:`🎁 العروض (${accOffs.length})`},
     (a.links||[]).length>0&&{id:"links",label:"🔗 اللينكات"},
+    qaList.length>0&&{id:"qa",label:`❓ أسئلة (${qaList.length})`},
   ].filter(Boolean);
   if(tabs.length>0&&!tabs.find(t=>t.id===tab))setTab(tabs[0].id);
 
@@ -754,6 +756,26 @@ function AccountProfilePage({a,offs,onBack,onZoom,allAccs}){
           </div>
         )}
 
+        {/* ── Q&A TAB ── */}
+        {tab==="qa"&&qaList.length>0&&(
+          <div style={{display:"grid",gap:".6rem",animation:"pageIn .25s ease"}}>
+            {qaList.map(function(item,i){
+              return(
+                <div key={i} style={{background:"rgba(255,255,255,.025)",border:"1px solid var(--border)",borderRadius:10,padding:".9rem 1rem"}}>
+                  <div style={{display:"flex",gap:".4rem",marginBottom:".45rem",alignItems:"flex-start"}}>
+                    <span style={{fontSize:".8rem",flexShrink:0,marginTop:".05rem"}}>❓</span>
+                    <div style={{fontSize:".82rem",fontWeight:600,color:"var(--text)",lineHeight:1.5}}>{item.q}</div>
+                  </div>
+                  <div style={{display:"flex",gap:".4rem",alignItems:"flex-start",borderTop:"1px solid rgba(255,255,255,.06)",paddingTop:".45rem"}}>
+                    <span style={{fontSize:".8rem",flexShrink:0,marginTop:".05rem"}}>💡</span>
+                    <div style={{fontSize:".82rem",color:"var(--dim)",lineHeight:1.6}}>{item.a}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* Branding footer */}
         <div style={{textAlign:"center",marginTop:"2.5rem",paddingTop:"1.5rem",borderTop:"1px solid var(--border)"}}>
           <div style={{fontSize:".62rem",color:"rgba(255,255,255,.18)",letterSpacing:".18em",textTransform:"uppercase",fontFamily:"'Work Sans',sans-serif",marginBottom:".4rem"}}>Powered by</div>
@@ -799,12 +821,27 @@ function AccCard({a,onClick,onShare,onTagClick}){
           ))}
         </div>
         <div style={{marginBottom:hasReplies?".55rem":"0"}}>{(a.links||[]).map(l=><Lnk key={l.label} l={l}/>)}</div>
-        {hasReplies&&(
-          <div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:".28rem",flexWrap:"wrap",borderTop:"1px solid var(--border)",paddingTop:".5rem",alignItems:"center"}}>
-            {a.fixedReply&&<CopyBtn text={a.fixedReply} label="الرد الثابت" small/>}
-            {a.timesReply&&<CopyBtn text={a.timesReply} label="المواعيد" small/>}
-            {a.contactReply&&<CopyBtn text={a.contactReply} label="التواصل" small/>}
-            {(a.extraReplies||[]).map((r,i)=><CopyBtn key={i} text={r.text} label={r.label||`رد ${i+1}`} small/>)}
+        {(hasReplies||(a.trainedQA||[]).filter(q=>q.q&&q.a).length>0)&&(
+          <div onClick={e=>e.stopPropagation()} style={{borderTop:"1px solid var(--border)",paddingTop:".5rem"}}>
+            {hasReplies&&(
+              <div style={{display:"flex",gap:".28rem",flexWrap:"wrap",alignItems:"center",marginBottom:(a.trainedQA||[]).filter(q=>q.q&&q.a).length>0?".4rem":"0"}}>
+                {a.fixedReply&&<CopyBtn text={a.fixedReply} label="الرد الثابت" small/>}
+                {a.timesReply&&<CopyBtn text={a.timesReply} label="المواعيد" small/>}
+                {a.contactReply&&<CopyBtn text={a.contactReply} label="التواصل" small/>}
+                {(a.extraReplies||[]).map((r,i)=><CopyBtn key={i} text={r.text} label={r.label||`رد ${i+1}`} small/>)}
+              </div>
+            )}
+            {(a.trainedQA||[]).filter(q=>q.q&&q.a).length>0&&(
+              <div style={{display:"flex",alignItems:"center",gap:".3rem",flexWrap:"wrap"}}>
+                <span style={{fontSize:".58rem",color:"var(--dim)",letterSpacing:".05em"}}>❓</span>
+                {(a.trainedQA||[]).filter(q=>q.q&&q.a).slice(0,3).map((q,i)=>(
+                  <span key={i} style={{fontSize:".62rem",color:"var(--dim)",background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.08)",borderRadius:4,padding:".1rem .35rem",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:120}}>{q.q}</span>
+                ))}
+                {(a.trainedQA||[]).filter(q=>q.q&&q.a).length>3&&(
+                  <span style={{fontSize:".6rem",color:"var(--dim)"}}>+{(a.trainedQA||[]).filter(q=>q.q&&q.a).length-3}</span>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
