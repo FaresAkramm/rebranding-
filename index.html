@@ -640,7 +640,7 @@ function OCard({o,accName,adminMode=false,onRenew,onDelete}){
 }
 
 /* ══ ACCOUNT PROFILE PAGE (full page via shared link) ══ */
-function AccountProfilePage({a,offs,onBack,onZoom,allAccs}){
+function AccountProfilePage({a,offs,onBack,onZoom,allAccs,isAdmin}){
   const[tab,setTab]=useState("replies");
   const accOffs=offs.filter(o=>o.accountId===a.id&&!isExp(o.expiryDate));
   const hasReplies=a.fixedReply||a.timesReply||a.contactReply||(a.extraReplies&&a.extraReplies.length>0);
@@ -651,7 +651,7 @@ function AccountProfilePage({a,offs,onBack,onZoom,allAccs}){
     hasGallery&&{id:"gallery",label:"📸 الألبوم"},
     accOffs.length>0&&{id:"offers",label:`🎁 العروض (${accOffs.length})`},
     (a.links||[]).length>0&&{id:"links",label:"🔗 اللينكات"},
-    qaList.length>0&&{id:"qa",label:`❓ أسئلة (${qaList.length})`},
+    (isAdmin||qaList.length>0)&&{id:"qa",label:`❓ أسئلة${qaList.length>0?" ("+qaList.length+")":""}`},
   ].filter(Boolean);
   if(tabs.length>0&&!tabs.find(t=>t.id===tab))setTab(tabs[0].id);
 
@@ -757,14 +757,24 @@ function AccountProfilePage({a,offs,onBack,onZoom,allAccs}){
         )}
 
         {/* ── Q&A TAB ── */}
-        {tab==="qa"&&qaList.length>0&&(
+        {tab==="qa"&&(isAdmin||qaList.length>0)&&(
           <div style={{display:"grid",gap:".6rem",animation:"pageIn .25s ease"}}>
+            {qaList.length===0&&isAdmin&&(
+              <div style={{textAlign:"center",padding:"2rem",color:"var(--dim)",fontSize:".8rem"}}>مفيش أسئلة محفوظة دلوقتي</div>
+            )}
             {qaList.map(function(item,i){
               return(
-                <div key={i} style={{background:"rgba(255,255,255,.025)",border:"1px solid var(--border)",borderRadius:10,padding:".9rem 1rem"}}>
+                <div key={i} style={{background:"rgba(255,255,255,.025)",border:"1px solid var(--border)",borderRadius:10,padding:".9rem 1rem",position:"relative"}}>
                   <div style={{display:"flex",gap:".4rem",marginBottom:".45rem",alignItems:"flex-start"}}>
                     <span style={{fontSize:".8rem",flexShrink:0,marginTop:".05rem"}}>❓</span>
-                    <div style={{fontSize:".82rem",fontWeight:600,color:"var(--text)",lineHeight:1.5}}>{item.q}</div>
+                    <div style={{fontSize:".82rem",fontWeight:600,color:"var(--text)",lineHeight:1.5,flex:1}}>{item.q}</div>
+                    {isAdmin&&(
+                      <button onClick={async function(){
+                        var fb=window.__fb;if(!fb)return;
+                        var newQA=a.trainedQA.filter(function(_,idx){return idx!==i;});
+                        await fb.setDoc(fb.doc(fb.db,"accounts",a.id),Object.assign({},a,{trainedQA:newQA,updatedAt:new Date().toISOString()}));
+                      }} style={{background:"rgba(239,68,68,.1)",border:"1px solid rgba(239,68,68,.2)",color:"#f87171",borderRadius:5,fontSize:".7rem",cursor:"pointer",padding:".15rem .4rem",flexShrink:0}}>🗑</button>
+                    )}
                   </div>
                   <div style={{display:"flex",gap:".4rem",alignItems:"flex-start",borderTop:"1px solid rgba(255,255,255,.06)",paddingTop:".45rem"}}>
                     <span style={{fontSize:".8rem",flexShrink:0,marginTop:".05rem"}}>💡</span>
@@ -2461,6 +2471,9 @@ function App(){
           <div className="tab-bar">
             <button className={"tab-btn"+(atab==="accs"?" on":"")} onClick={()=>{setAtab("accs");setAdminSearch("");}}>{`📁 الأكونتات (${accs.length})`}</button>
             <button className={"tab-btn"+(atab==="offs"?" on":"")} onClick={()=>{setAtab("offs");setAdminSearch("");}}>{`🎁 العروض (${offs.filter(o=>!isExp(o.expiryDate)).length} نشط / ${expiredOffs.length} منتهي)${urgentCount>0?" ⚠️":""}`}</button>
+            <button className={"tab-btn"+(atab==="qa"?" on":"")} onClick={()=>{setAtab("qa");setAdminSearch("");}}>
+              {`❓ أسئلة (${accs.reduce(function(sum,a){return sum+(a.trainedQA||[]).filter(function(q){return q.q&&q.a;}).length;},0)})`}
+            </button>
           </div>
 
           {atab==="accs"&&<>
@@ -2530,6 +2543,37 @@ function App(){
               </div>
             )}
           </>}
+
+          {atab==="qa"&&(
+            <div style={{display:"grid",gap:".5rem"}}>
+              {accs.every(a=>(a.trainedQA||[]).filter(q=>q.q&&q.a).length===0)&&(
+                <div style={{textAlign:"center",padding:"3rem",color:"var(--dim)",fontSize:".85rem"}}>مفيش أسئلة محفوظة دلوقتي</div>
+              )}
+              {accs.map(function(a){
+                var qaItems=(a.trainedQA||[]).filter(function(q){return q.q&&q.a;});
+                if(!qaItems.length)return null;
+                return qaItems.map(function(item,i){
+                  return(
+                    <div key={a.id+"-"+i} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:".7rem .9rem",display:"flex",alignItems:"flex-start",gap:".75rem"}}>
+                      {a.avatar&&<img src={a.avatar} style={{width:32,height:32,borderRadius:"50%",objectFit:"cover",border:"1px solid rgba(212,165,116,.2)",flexShrink:0}} alt=""/>}
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:".68rem",color:"var(--hl)",fontWeight:700,marginBottom:".25rem"}}>{a.name}</div>
+                        <div style={{fontSize:".8rem",fontWeight:600,color:"var(--text)",marginBottom:".2rem"}}>❓ {item.q}</div>
+                        <div style={{fontSize:".75rem",color:"var(--dim)",lineHeight:1.55}}>💡 {item.a}</div>
+                      </div>
+                      <button onClick={async function(){
+                        var fb=window.__fb;if(!fb)return;
+                        var newQA=(a.trainedQA||[]).filter(function(_,idx){return idx!==i;});
+                        var updated=Object.assign({},a,{trainedQA:newQA,updatedAt:new Date().toISOString()});
+                        await fb.setDoc(fb.doc(fb.db,"accounts",a.id),updated);
+                        msg("🗑️ تم حذف السؤال");
+                      }} style={{background:"rgba(239,68,68,.08)",border:"1px solid rgba(239,68,68,.2)",color:"#f87171",borderRadius:6,fontSize:".72rem",cursor:"pointer",padding:".25rem .5rem",flexShrink:0,alignSelf:"center"}}>🗑</button>
+                    </div>
+                  );
+                });
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -2565,6 +2609,31 @@ function App(){
             {(selA.galleryImages||[]).length>0&&<GalleryView images={selA.galleryImages} accName={selA.name} onZoom={setLightImg}/>}
             {offs.filter(o=>o.accountId===selA.id&&!isExp(o.expiryDate)).length>0&&(
               <div><div style={{fontWeight:600,marginBottom:".6rem",fontSize:".7rem",letterSpacing:".08em",textTransform:"uppercase",color:"var(--dim)"}}>العروض</div>{offs.filter(o=>o.accountId===selA.id&&!isExp(o.expiryDate)).map(o=><OCard key={o.id} o={o}/>)}</div>
+            )}
+            {/* ── Q&A SECTION ── */}
+            {((selA.trainedQA||[]).filter(q=>q.q&&q.a).length>0)&&(
+              <div style={{marginTop:".85rem"}}>
+                <div style={{fontWeight:600,marginBottom:".6rem",fontSize:".7rem",letterSpacing:".08em",textTransform:"uppercase",color:"var(--dim)"}}>❓ الأسئلة المحفوظة</div>
+                <div style={{display:"grid",gap:".4rem"}}>
+                  {(selA.trainedQA||[]).filter(q=>q.q&&q.a).map(function(item,i){
+                    return(
+                      <div key={i} style={{background:"rgba(255,255,255,.02)",border:"1px solid var(--border)",borderRadius:8,padding:".65rem .75rem"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:".5rem",marginBottom:".3rem"}}>
+                          <div style={{fontSize:".78rem",fontWeight:600,color:"var(--text)",flex:1}}>❓ {item.q}</div>
+                          <button onClick={async function(){
+                            var fb=window.__fb;if(!fb)return;
+                            var newQA=(selA.trainedQA||[]).filter(function(_,idx){return idx!==i;});
+                            var updated=Object.assign({},selA,{trainedQA:newQA,updatedAt:new Date().toISOString()});
+                            await fb.setDoc(fb.doc(fb.db,"accounts",selA.id),updated);
+                            msg("🗑️ تم حذف السؤال");
+                          }} style={{background:"rgba(239,68,68,.08)",border:"1px solid rgba(239,68,68,.2)",color:"#f87171",borderRadius:5,fontSize:".68rem",cursor:"pointer",padding:".12rem .38rem",flexShrink:0}}>🗑</button>
+                        </div>
+                        <div style={{fontSize:".75rem",color:"var(--dim)",lineHeight:1.55,paddingRight:"1rem"}}>💡 {item.a}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
             <div style={{textAlign:"center",marginTop:"1.2rem"}}><button onClick={closeAcc} style={S.ghost}>إغلاق</button></div>
           </div>
