@@ -1193,13 +1193,15 @@ function BotWindow({accs,offs,isAdmin,onClose,onSaveQA,onAction}){
     }catch(e){}
   },[isAdmin]);
 
-  async function saveUnansweredToFB(q,accName){
+  async function saveUnansweredToFB(q,accName,accId){
     try{
       var fb=window.__fb;if(!fb)return;
       var id="uq_"+Date.now();
-      await fb.setDoc(fb.doc(fb.db,"unanswered_questions",id),{q:q,accName:accName||"عام",a:"",createdAt:new Date().toISOString(),tgMsgId:null});
-      // Notify Telegram
-      var text="❓ سؤال جديد بدون إجابة\n\nالأكونت: "+(accName||"عام")+"\nالسؤال: "+q+"\n\nارد على الرسالة دي مباشرة وهيتحفظ تلقائي ✅\n[ID:"+id+"]";
+      await fb.setDoc(fb.doc(fb.db,"unanswered_questions",id),{
+        q:q,accName:accName||"عام",accId:accId||"",a:"",createdAt:new Date().toISOString()
+      });
+      // Notify Telegram with accId embedded
+      var text="❓ سؤال جديد بدون إجابة\n\nالأكونت: "+(accName||"عام")+"\nالسؤال: "+q+"\n\nارد على الرسالة دي مباشرة وهيتحفظ تلقائي ✅\n[ID:"+id+"][AID:"+(accId||"")+"]";
       fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
@@ -1329,7 +1331,7 @@ function BotWindow({accs,offs,isAdmin,onClose,onSaveQA,onAction}){
         });
         if(isNew){
           var accName=matched?matched.name:"عام";
-          saveUnansweredToFB(uq,accName);
+          saveUnansweredToFB(uq,accName,lockedAcc?lockedAcc.id:"");
           var waText=encodeURIComponent("❓ سؤال جديد بدون إجابة في البوت:\n\nالأكونت: "+accName+"\nالسؤال: "+uq+"\n\nافتح البوت واضغط 📋 عشان ترد 🤖");
           window.open("https://wa.me/"+WA+"?text="+waText,"_blank");
         }
