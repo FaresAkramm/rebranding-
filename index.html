@@ -368,6 +368,8 @@ async function downloadAllAsZip(urls,accName,setZipping){
 }
 const CLD_CLOUD="diepkkeyu",CLD_PRESET="rebranding";
 const GROQ_KEY="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";
+const TG_BOT_TOKEN="8603892646:AAFz4ScNfZsEBC482iNpWQW8qElf-ahKk2Q";
+const TG_ADMIN_ID="1462141071";
 async function uploadToCloudinary(file){
   const fd=new FormData();fd.append("file",file);fd.append("upload_preset",CLD_PRESET);
   const res=await fetch(`https://api.cloudinary.com/v1_1/${CLD_CLOUD}/image/upload`,{method:"POST",body:fd});
@@ -1190,7 +1192,14 @@ function BotWindow({accs,offs,isAdmin,onClose,onSaveQA,onAction}){
     try{
       var fb=window.__fb;if(!fb)return;
       var id="uq_"+Date.now();
-      await fb.setDoc(fb.doc(fb.db,"unanswered_questions",id),{q:q,accName:accName||"عام",a:"",createdAt:new Date().toISOString()});
+      await fb.setDoc(fb.doc(fb.db,"unanswered_questions",id),{q:q,accName:accName||"عام",a:"",createdAt:new Date().toISOString(),tgMsgId:null});
+      // Notify Telegram
+      var text="❓ سؤال جديد بدون إجابة\n\nالأكونت: "+(accName||"عام")+"\nالسؤال: "+q+"\n\nارد على الرسالة دي مباشرة وهيتحفظ تلقائي ✅\n[ID:"+id+"]";
+      fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({chat_id:TG_ADMIN_ID,text:text})
+      }).catch(function(){});
     }catch(e){}
   }
 
