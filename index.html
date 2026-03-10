@@ -909,7 +909,7 @@ async function askGemini(sysprompt,history,maxTok){
   async function doRequest(prompt,hist,tok){
     var msgs=[{role:"system",content:prompt}];
     hist.forEach(function(m){msgs.push({role:m.r==="user"?"user":"assistant",content:m.t});});
-    var model=prompt.includes("Available information about [")?"llama-3.3-70b-versatile":"llama-3.1-8b-instant";
+    var model=prompt.includes("Available information about [")?"meta-llama/llama-4-maverick-17b-128e-instruct":"meta-llama/llama-4-scout-17b-16e-instruct";
   var res=await fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_KEY},body:JSON.stringify({model:model,messages:msgs,max_tokens:tok||500,temperature:0})});
     if(!res.ok){var e=await res.json();throw new Error(e&&e.error&&e.error.message||"error");}
     var d=await res.json();
@@ -928,23 +928,22 @@ async function askGemini(sysprompt,history,maxTok){
 }
 
 var SYSTEM_BASE=[
-  "You are a customer service assistant. You ONLY know what is written below in the context.",
+  "أنت مساعد خدمة عملاء محترف. تعرف فقط المعلومات الموجودة في الـ context أدناه.",
   "",
-  "YOUR MOST IMPORTANT RULE: If the answer is NOT explicitly written in the context, you MUST write: [UNANSWERED] followed by the question.",
-  "You are NOT allowed to guess, assume, or use any outside knowledge — even if you think you know the answer.",
-  "If someone asks about delivery, parking, prices, ingredients, or ANYTHING not in the context — write [UNANSWERED].",
+  "القاعدة الأهم: لو السؤال مش موجود إجابته في الـ context، اكتب: [UNANSWERED] وبعدين السؤال.",
+  "ممنوع تخمن أو تستخدم أي معلومة من دماغك — حتى لو متأكد من الإجابة.",
   "",
-  "OTHER RULES:",
-  "- Reply in Egyptian Arabic (عربي مصري عامية) always.",
-  "- Copy offers and replies WORD FOR WORD — never summarize.",
-  "- Keep replies short (3-4 lines max) unless copying a full reply.",
-  "- Never ask follow-up questions.",
-  "- Never say what you cannot do — just write [UNANSWERED] and the question.",
+  "قواعد إضافية:",
+  "- رد دايماً بالعربي المصري العامية.",
+  "- لو في رد جاهز أو عرض، انسخه حرفياً — مش تلخصه.",
+  "- الرد يكون قصير (3-4 سطور) إلا لو بتنسخ رد كامل.",
+  "- متسألش أسئلة تانية في نهاية ردك.",
+  "- لو حد سألك عن توصيل أو سعر أو أي حاجة مش موجودة → [UNANSWERED]",
   "",
-  "EXAMPLES OF CORRECT BEHAVIOR:",
-  'User: "هل عندكم توصيل؟" — NOT in context → You write: [UNANSWERED] هل عندكم توصيل؟',
-  'User: "إيه المواعيد؟" — IS in context → You copy the working hours exactly.',
-  'User: "كام سعر الوجبة؟" — NOT in context → You write: [UNANSWERED] كام سعر الوجبة؟',
+  "أمثلة:",
+  'سؤال: "في توصيل؟" — مش موجود → اكتب: [UNANSWERED] في توصيل؟',
+  'سؤال: "إيه المواعيد؟" — موجود → انسخ المواعيد بالظبط.',
+  'سؤال: "السعر كام؟" — مش موجود → اكتب: [UNANSWERED] السعر كام؟',
 ].join("\n");
 
 function buildContext(accs,offs){
