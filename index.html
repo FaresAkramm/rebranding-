@@ -1103,6 +1103,18 @@ async function parseAndExecAction(actionStr,accs,offs,onDone){
       await fb.setDoc(fb.doc(fb.db,"accounts",acc4.id),Object.assign({},acc4,{status:parsed.status,updatedAt:new Date().toISOString()}));
       onDone(true,"✅ تم تغيير حالة "+acc4.name+" إلى "+parsed.status);
     }
+    else if(t==="add_info"){
+      var acc5=accs.find(function(a){return a.id===parsed.accountId;});
+      if(!acc5){onDone(false,"مش لاقي الأكونت");return;}
+      var existing5=(acc5.trainedQA||[]);
+      var isDup5=existing5.find(function(x){return x.q&&x.q.trim()===(parsed.question||"").trim();});
+      var newQA5=isDup5
+        ? existing5.map(function(x){return x.q.trim()===parsed.question.trim()?{q:x.q,a:parsed.answer}:x;})
+        : [...existing5,{q:parsed.question,a:parsed.answer}];
+      var updated5=Object.assign({},acc5,{trainedQA:newQA5,updatedAt:new Date().toISOString()});
+      try{await fb.setDoc(fb.doc(fb.db,"accounts",acc5.id),updated5);onDone(true,"✅ تم إضافة المعلومة لـ "+acc5.name);}
+      catch(e){onDone(false,"❌ "+e.message);}
+    }
     else{onDone(false,"أكشن مش معروف: "+t);}
   }catch(e){onDone(false,"❌ خطأ: "+e.message);}
 }
@@ -1393,6 +1405,20 @@ function BotWindow({accs,offs,isAdmin,onClose,onSaveQA,onAction}){
       setMsgs(function(p){return [...p,{r:"ai",t:"✅ تم تعديل العرض: "+off2.title}];});
       setWizard(null);
     }
+    else if(type==="add_info"){
+      var acc5=accs.find(function(a){return a.id===data.accountId;});
+      if(!acc5)return;
+      var existing5=(acc5.trainedQA||[]);
+      var isDup5=existing5.find(function(x){return x.q&&x.q.trim()===(data.question||"").trim();});
+      var newQA5=isDup5
+        ? existing5.map(function(x){return x.q.trim()===data.question.trim()?{q:x.q,a:data.answer}:x;})
+        : [...existing5,{q:data.question,a:data.answer}];
+      var updated5=Object.assign({},acc5,{trainedQA:newQA5,updatedAt:new Date().toISOString()});
+      var fb=window.__fb;
+      await fb.setDoc(fb.doc(fb.db,"accounts",acc5.id),updated5);
+      setMsgs(function(p){return [...p,{r:"ai",t:"✅ تم إضافة المعلومة لـ "+acc5.name}];});
+      setWizard(null);
+    }
     else if(type==="edit_acc"){
       var acc2=accs.find(function(a){return a.id===data.accountId;});
       if(!acc2)return;
@@ -1543,6 +1569,37 @@ function BotWindow({accs,offs,isAdmin,onClose,onSaveQA,onAction}){
         );
       }
     }
+    // ══ ADD INFO ══
+    if(wizard==="add_info"){
+      if(step===0)return(
+        <div style={{padding:"1rem",display:"flex",flexDirection:"column",gap:".4rem"}}>
+          <div style={{fontSize:".75rem",color:"#63b3ed",fontWeight:700,marginBottom:".2rem"}}>💡 إضافة معلومة — اختار الأكونت</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:".3rem",maxHeight:160,overflowY:"auto"}}>
+            {accs.map(function(a){return(
+              <button key={a.id} onClick={()=>{setData({accountId:a.id});setStep(1);}} style={{...SEC,fontSize:".7rem",padding:".25rem .55rem"}}>{a.name}</button>
+            );})}
+          </div>
+          <button onClick={()=>setWizard(null)} style={{...SEC,marginTop:".3rem"}}>إلغاء</button>
+        </div>
+      );
+      if(step===1)return(
+        <div style={{padding:"1rem",display:"flex",flexDirection:"column",gap:".3rem"}}>
+          <div style={{fontSize:".75rem",color:"#63b3ed",fontWeight:700,marginBottom:".2rem"}}>💡 إضافة معلومة</div>
+          <div style={{fontSize:".65rem",color:"var(--dim)",marginBottom:".2rem"}}>لما حد يسأل نفس السؤال، البوت يرد بالإجابة دي تلقائي</div>
+          <input style={INP} placeholder="السؤال — مثال: في ضريبة على الطلب؟" value={data.question||""} onChange={e=>setData(function(d){return {...d,question:e.target.value};})}/>
+          <textarea style={{...INP,resize:"vertical",minHeight:70}} placeholder="الإجابة — مثال: لا يوجد ضريبة على الطلب" value={data.answer||""} onChange={e=>setData(function(d){return {...d,answer:e.target.value};})}/>
+          <div style={{display:"flex",gap:".4rem",marginTop:".2rem"}}>
+            <button onClick={async()=>{
+              if(!data.question||!data.answer)return;
+              setSaving(true);
+              await wizardExec("add_info",data);
+              setSaving(false);
+            }} style={HL} disabled={!data.question||!data.answer||saving}>{saving?"⏳ جاري...":"حفظ 💡"}</button>
+            <button onClick={()=>setStep(0)} style={SEC}>رجوع</button>
+          </div>
+        </div>
+      );
+    }
     return null;
   }
 
@@ -1574,6 +1631,7 @@ function BotWindow({accs,offs,isAdmin,onClose,onSaveQA,onAction}){
           <button onClick={()=>{setWizard("add_offer");}} style={{flex:1,minWidth:70,padding:".3rem .4rem",borderRadius:6,border:"1px solid rgba(212,165,116,.25)",background:"rgba(212,165,116,.06)",color:"var(--hl)",fontFamily:"Cairo,sans-serif",fontSize:".68rem",fontWeight:700,cursor:"pointer"}}>➕ عرض</button>
           <button onClick={()=>{setWizard("edit_offer");}} style={{flex:1,minWidth:70,padding:".3rem .4rem",borderRadius:6,border:"1px solid rgba(255,255,255,.1)",background:"rgba(255,255,255,.03)",color:"var(--text)",fontFamily:"Cairo,sans-serif",fontSize:".68rem",fontWeight:700,cursor:"pointer"}}>✏️ عرض</button>
           <button onClick={()=>{setWizard("delete_offer");}} style={{flex:1,minWidth:70,padding:".3rem .4rem",borderRadius:6,border:"1px solid rgba(239,68,68,.2)",background:"rgba(239,68,68,.04)",color:"#f87171",fontFamily:"Cairo,sans-serif",fontSize:".68rem",fontWeight:700,cursor:"pointer"}}>🗑️ عرض</button>
+          <button onClick={()=>{setWizard("add_info");}} style={{flex:1,minWidth:70,padding:".3rem .4rem",borderRadius:6,border:"1px solid rgba(99,179,237,.25)",background:"rgba(99,179,237,.05)",color:"#63b3ed",fontFamily:"Cairo,sans-serif",fontSize:".68rem",fontWeight:700,cursor:"pointer"}}>💡 معلومة</button>
           <button onClick={()=>{setWizard("edit_acc");}} style={{flex:1,minWidth:70,padding:".3rem .4rem",borderRadius:6,border:"1px solid rgba(255,255,255,.1)",background:"rgba(255,255,255,.03)",color:"var(--text)",fontFamily:"Cairo,sans-serif",fontSize:".68rem",fontWeight:700,cursor:"pointer"}}>✏️ أكونت</button>
         </div>
       )}
