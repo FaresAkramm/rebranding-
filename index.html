@@ -16,6 +16,17 @@ function getDB() {
 }
 
 const GROQ_KEY = process.env.GROQ_KEY;
+
+async function logActivity(db, type, label, detail) {
+  try {
+    const id = "act_" + Date.now();
+    await db.collection("activity_log").doc(id).set({
+      id, type, label, detail: detail || "",
+      source: "telegram",
+      createdAt: new Date().toISOString()
+    });
+  } catch(e) {}
+}
 const TG_TOKEN = process.env.TG_TOKEN;
 const ADMIN_IDS = (process.env.ADMIN_IDS || "").split(",").map(s => s.trim());
 const chatHistory = {};
@@ -169,26 +180,26 @@ async function execAction(db, actionStr, accs, offs) {
       return `❌ تاريخ الانتهاء في الماضي! النهارده: ${today}`;
     }
     await db.collection("offers").doc(off.id).update({ ...parsed.changes, updatedAt: new Date().toISOString() });
-    return `✅ تم تعديل: ${off.title}`;
+    await logActivity(db,"edit_offer","تعديل عرض: "+off.title,"تليجرام"); return `✅ تم تعديل: ${off.title}`;
   }
   if (t === "delete_offer") {
     const off = offs.find(o => o.id === parsed.offerId);
     if (!off) return `❌ ID غلط: ${parsed.offerId}`;
     await db.collection("offers").doc(parsed.offerId).delete();
-    return `🗑️ تم حذف: ${off.title}`;
+    await logActivity(db,"delete_offer","حذف عرض: "+off.title,"تليجرام"); return `🗑️ تم حذف: ${off.title}`;
   }
   if (t === "edit_account") {
     const acc = accs.find(a => a.id === parsed.accountId);
     if (!acc) return `❌ ID غلط: ${parsed.accountId}`;
     await db.collection("accounts").doc(acc.id).update({ ...parsed.changes, updatedAt: new Date().toISOString() });
-    return `✅ تم تعديل: ${acc.name}`;
+    await logActivity(db,"edit_account","تعديل أكونت: "+acc.name,"تليجرام"); return `✅ تم تعديل: ${acc.name}`;
   }
   if (t === "add_reply") {
     const acc = accs.find(a => a.id === parsed.accountId);
     if (!acc) return `❌ ID غلط: ${parsed.accountId}`;
     const replies = (acc.extraReplies || []).concat([{ label: parsed.label, text: parsed.text }]);
     await db.collection("accounts").doc(acc.id).update({ extraReplies: replies, updatedAt: new Date().toISOString() });
-    return `✅ تم إضافة الرد لـ ${acc.name}`;
+    await logActivity(db,"add_reply","إضافة رد لـ "+acc.name,"تليجرام"); return `✅ تم إضافة الرد لـ ${acc.name}`;
   }
   if (t === "add_account") {
     const id = "acc_" + Date.now();
