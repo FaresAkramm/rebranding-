@@ -1358,8 +1358,9 @@ function BotWindow({accs,offs,isAdmin,onClose,onSaveQA,onAction}){
         activeCtx=buildFullContext(accs,offs);
       } else {
         // اكتشاف الأسئلة العامة أولاً
-        var generalPatterns=/(آخر عرض|اخر عرض|أقرب عرض|اقرب عرض|كل العروض|العروض النشطة|عروض النهارده|مين عنده عرض|عروض فين|عندكم عروض|ايه العروض|إيه العروض|all offers|latest offer|أحدث عرض|احدث عرض|عروض مميزة|عروض متاحة)/i;
-        var isGeneralQ=generalPatterns.test(txt);
+        var generalPatterns=/(عرض|عروض|offer|offers|deal|deals)/i;
+        var accNameInQ=accs.some(function(a){return txt.toLowerCase().includes(a.name.toLowerCase());});
+        var isGeneralQ=generalPatterns.test(txt)&&!accNameInQ;
         if(isGeneralQ){
           matched=null;
           activeCtx=buildFullContext(accs,offs);
