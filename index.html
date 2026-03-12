@@ -326,7 +326,7 @@ window.WA_NUMBER="201277188784";// WhatsApp number for error alerts
 
 <script type="text/babel">
 const{useState,useEffect,useRef,useMemo,useCallback}=React;
-const ADMIN="fares2388";
+const ADMIN_DEFAULT="fares2388"; // fallback only
 const CATS=["كل شيء","مطاعم","أخرى"];
 const LOGO=window.LOGO_URL;
 const WA=window.WA_NUMBER;
@@ -915,35 +915,43 @@ async function askGemini(sysprompt,history,maxTok){
     var d=await res.json();
     return (d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content)||"";
   }
-  try{
-    return await doRequest(sysprompt,history,maxTok);
-  }catch(e){
-    // لو فشل بسبب tokens — جرب تاني بـ context مضغوط ورسالة واحدة بس
-    if(e.message&&(e.message.includes("too large")||e.message.includes("tokens")||e.message.includes("limit"))){
-      var shortPrompt=sysprompt.slice(0,3000); // اول 3000 حرف بس
-      return await doRequest(shortPrompt,history.slice(-1),400);
+  for(var attempt=0;attempt<3;attempt++){
+    try{
+      var result=await doRequest(sysprompt,history,maxTok);
+      if(result)return result;
+    }catch(e){
+      if(e.message&&(e.message.includes("too large")||e.message.includes("tokens")||e.message.includes("limit"))){
+        var shortPrompt=sysprompt.slice(0,3000);
+        try{return await doRequest(shortPrompt,history.slice(-1),400);}catch(e2){}
+      }
+      if(attempt===2)return "[UNANSWERED] فشل الاتصال، حاول تاني";
+      await new Promise(function(res){setTimeout(res,1000*(attempt+1));});
     }
-    throw e;
   }
+  return "[UNANSWERED] فشل الاتصال، حاول تاني";
 }
 
 var SYSTEM_BASE=[
-  "أنت مساعد خدمة عملاء محترف. تعرف فقط المعلومات الموجودة في الـ context أدناه.",
+  "أنت مساعد لموظفي وكالة Rebranding — بتساعدهم يردوا على عملاء المطاعم.",
   "",
-  "القاعدة الأهم: لو السؤال مش موجود إجابته في الـ context، اكتب: [UNANSWERED] وبعدين السؤال.",
-  "ممنوع تخمن أو تستخدم أي معلومة من دماغك — حتى لو متأكد من الإجابة.",
+  "القاعدة الأهم: رد بس من المعلومات الموجودة في الـ context. لو مش موجود → اكتب: [UNANSWERED] وبعدين السؤال.",
+  "ممنوع تخمن أو تكمل من دماغك — حتى لو بدو الإجابة واضحة.",
   "",
-  "قواعد إضافية:",
-  "- رد دايماً بالعربي المصري العامية.",
-  "- لو في رد جاهز أو عرض، انسخه حرفياً — مش تلخصه.",
-  "- الرد يكون قصير (3-4 سطور) إلا لو بتنسخ رد كامل.",
-  "- متسألش أسئلة تانية في نهاية ردك.",
-  "- لو حد سألك عن توصيل أو سعر أو أي حاجة مش موجودة → [UNANSWERED]",
+  "أنواع الأسئلة:",
+  "- سؤال عن أكونت معين: رد من معلومات الأكونت ده بس.",
+  "- سؤال عام (آخر عرض / أقرب انتهاء / كل الأكونتات): رد من كل الداتا.",
+  "",
+  "قواعد الرد:",
+  "- العربي المصري العامية دايماً.",
+  "- الردود والعروض انسخها حرفياً مش تلخصها.",
+  "- قصير (3-4 سطور) إلا لو الرد الجاهز أطول.",
+  "- متسألش أسئلة في نهاية ردك.",
   "",
   "أمثلة:",
-  'سؤال: "في توصيل؟" — مش موجود → اكتب: [UNANSWERED] في توصيل؟',
-  'سؤال: "إيه المواعيد؟" — موجود → انسخ المواعيد بالظبط.',
-  'سؤال: "السعر كام؟" — مش موجود → اكتب: [UNANSWERED] السعر كام؟',
+  'Q: "إيه المواعيد؟" — موجود → انسخ المواعيد بالظبط.',
+  'Q: "في توصيل؟" — مش موجود → [UNANSWERED] في توصيل؟',
+  'Q: "آخر عرض اتضاف إيه؟" — عام → اجمع من كل الأكونتات.',
+  'Q: "أقرب عرض هينتهي إمتى؟" — عام → قارن تواريخ الانتهاء وارد.',
 ].join("\n");
 
 function buildContext(accs,offs){
@@ -1002,27 +1010,38 @@ function buildSmartContext(userText,accs,offs){
 
 function buildFullContext(accs,offs){
   var activeOffs=offs.filter(function(o){return !isExp(o.expiryDate);});
+  // Sort by expiry to help answer "أقرب عرض هينتهي"
+  var sortedOffs=activeOffs.slice().sort(function(a,b){
+    if(!a.expiryDate)return 1;
+    if(!b.expiryDate)return -1;
+    return a.expiryDate.localeCompare(b.expiryDate);
+  });
   var parts=[
     SYSTEM_BASE,
     "",
-    "IMPORTANT DISTINCTION:",
-    "- 'OFFER EXPIRY DATE' = the last date a promotional offer is valid (تاريخ انتهاء العرض)",
-    "- 'WORKING HOURS' = the daily opening/closing times of the place (مواعيد العمل/الغلق)",
-    "These are COMPLETELY DIFFERENT. Never confuse them.",
+    "ملاحظة مهمة: OFFER EXPIRY = آخر يوم للعرض. WORKING HOURS = مواعيد العمل اليومية. مختلفين تماماً.",
     "",
-    "Accounts:"
+    "الأكونتات والعروض:"
   ];
   accs.forEach(function(a){
-    var ao=activeOffs.filter(function(o){return o.accountId===a.id;});
-    var line=a.name;
-    if(a.timesReply)line+=" | WORKING-HOURS: "+a.timesReply.slice(0,80);
-    if(a.contactReply)line+=" | CONTACT: "+a.contactReply.slice(0,50);
+    var ao=sortedOffs.filter(function(o){return o.accountId===a.id;});
+    var line="【"+a.name+"】";
+    if(a.status&&a.status!=="نشط")line+=" ("+a.status+")";
+    if(a.timesReply)line+="\n  المواعيد: "+a.timesReply.slice(0,80);
+    if(a.contactReply)line+="\n  التواصل: "+a.contactReply.slice(0,60);
     if(ao.length>0){
-      line+=" | OFFERS: "+ao.map(function(o){
+      line+="\n  العروض: "+ao.map(function(o){
         var s=o.title;
-        if(o.expiryDate)s+=" [OFFER-EXPIRES: "+fmtDate(o.expiryDate)+"]";
+        if(o.expiryDate)s+=" (ينتهي: "+fmtDate(o.expiryDate)+")";
         return s;
       }).join(" / ");
+    } else {
+      line+="\n  العروض: مفيش عروض نشطة";
+    }
+    // Add trained Q&A summary
+    var tqa=(a.trainedQA||[]).filter(function(q){return q.q&&q.a;});
+    if(tqa.length>0){
+      line+="\n  معلومات إضافية: "+tqa.slice(0,3).map(function(q){return q.q+" → "+q.a;}).join(" | ");
     }
     parts.push(line);
   });
@@ -1338,15 +1357,23 @@ function BotWindow({accs,offs,isAdmin,onClose,onSaveQA,onAction}){
         // وضع السؤال العام — كل الداتا
         activeCtx=buildFullContext(accs,offs);
       } else {
-        // Auto detect من آخر رسالتين
-        var recentText=hist.slice(-2).map(function(m){return m.t||"";}).join(" ");
-        var smart=buildSmartContext(recentText,accs,offs);
-        if(!smart.matched){
-          var allText=hist.map(function(m){return m.t||"";}).join(" ");
-          smart=buildSmartContext(allText,accs,offs);
+        // اكتشاف الأسئلة العامة أولاً
+        var generalPatterns=/(آخر عرض|اخر عرض|أقرب عرض|اقرب عرض|كل العروض|العروض النشطة|عروض النهارده|مين عنده عرض|عروض فين|عندكم عروض|ايه العروض|إيه العروض|all offers|latest offer|أحدث عرض|احدث عرض|عروض مميزة|عروض متاحة)/i;
+        var isGeneralQ=generalPatterns.test(txt);
+        if(isGeneralQ){
+          matched=null;
+          activeCtx=buildFullContext(accs,offs);
+        } else {
+          // Auto detect من آخر رسالتين
+          var recentText=hist.slice(-2).map(function(m){return m.t||"";}).join(" ");
+          var smart=buildSmartContext(recentText,accs,offs);
+          if(!smart.matched){
+            var allText=hist.map(function(m){return m.t||"";}).join(" ");
+            smart=buildSmartContext(allText,accs,offs);
+          }
+          matched=smart.matched;
+          activeCtx=smart.ctx;
         }
-        matched=smart.matched;
-        activeCtx=smart.ctx;
       }
 
       var lang=detectLang(txt);
@@ -1390,10 +1417,11 @@ function BotWindow({accs,offs,isAdmin,onClose,onSaveQA,onAction}){
         if(isNew){
           var accName=matched?matched.name:"عام";
           saveUnansweredToFB(uq,accName,lockedAcc?lockedAcc.id:"");
-          var waText=encodeURIComponent("❓ سؤال جديد بدون إجابة في البوت:\n\nالأكونت: "+accName+"\nالسؤال: "+uq+"\n\nافتح البوت واضغط 📋 عشان ترد 🤖");
-          window.open("https://wa.me/"+WA+"?text="+waText,"_blank");
         }
-        cleanReply=reply.replace(/\[UNANSWERED\]\s*.+[\s\S]?/,"").trim();
+        cleanReply="عذراً، المعلومة دي مش متاحة عندي دلوقتي. هيتم إبلاغ الأدمن وهيرد عليك قريب! 🙏";
+        if(matched&&matched.contactReply){
+          cleanReply+="\n\nللتواصل المباشر:\n"+matched.contactReply;
+        }
       }
 
       // Add WhatsApp button if reply mentions contact info
@@ -2218,7 +2246,18 @@ function App(){
     catch(e){alert(e.message);}setBusy(false);
   }
 
-  function login(){if(pw===ADMIN){setAdmin(true);setView("admin");setPwErr(false);setPw("");}else setPwErr(true);}
+  async function login(){
+    try{
+      const settingsDoc=await getDoc(doc(db,"settings","admin"));
+      const correctPw=settingsDoc.exists()&&settingsDoc.data().password?settingsDoc.data().password:ADMIN_DEFAULT;
+      if(pw===correctPw){setAdmin(true);setView("admin");setPwErr(false);setPw("");}
+      else setPwErr(true);
+    }catch(e){
+      // Fallback to default password if Firebase fails
+      if(pw===ADMIN_DEFAULT){setAdmin(true);setView("admin");setPwErr(false);setPw("");}
+      else setPwErr(true);
+    }
+  }
 
   /* ── Derived data ── */
   const urgentCount=offs.filter(o=>!isExp(o.expiryDate)&&daysLeft(o.expiryDate)!==null&&daysLeft(o.expiryDate)<=3).length;
