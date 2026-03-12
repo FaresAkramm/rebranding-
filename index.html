@@ -13,10 +13,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script type="module">
   import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import{getFirestore,collection,doc,setDoc,deleteDoc,onSnapshot}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import{getFirestore,collection,doc,setDoc,deleteDoc,onSnapshot,getDocs,query,orderBy,limit}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const app=initializeApp({apiKey:"AIzaSyDyw9pT5tkE6Jz8_aamc1oK8NZk69R3sBo",authDomain:"rebranding-data-mod-56340.firebaseapp.com",projectId:"rebranding-data-mod-56340",storageBucket:"rebranding-data-mod-56340.firebasestorage.app",messagingSenderId:"696496503983",appId:"1:696496503983:web:144e09ee144d518fa2e85a"});
   const db=getFirestore(app);
-  window.__fb={db,collection,doc,setDoc,deleteDoc,onSnapshot};
+  window.__fb={db,collection,doc,setDoc,deleteDoc,onSnapshot,getDocs,query,orderBy,limit};
   window.__fbReady=true;
   window.dispatchEvent(new Event("fbReady"));
 </script>
@@ -2092,11 +2092,19 @@ function App(){
   React.useEffect(()=>{
     if(atab!=="log")return;
     var fb=window.__fb;if(!fb)return;
-    fb.getDocs(fb.collection(fb.db,"activity_log")).then(function(s){
+    var q=fb.query(fb.collection(fb.db,"activity_log"),fb.orderBy("createdAt","desc"),fb.limit(50));
+    var unsub=fb.onSnapshot(q,function(s){
       var logs=s.docs.map(function(d){return{id:d.id,...d.data()};});
-      logs.sort(function(a,b){return (b.createdAt||"").localeCompare(a.createdAt||"");});
-      setActLog(logs.slice(0,50));
-    }).catch(function(){});
+      setActLog(logs);
+    },function(e){
+      // fallback without orderBy
+      fb.getDocs(fb.collection(fb.db,"activity_log")).then(function(s){
+        var logs=s.docs.map(function(d){return{id:d.id,...d.data()};});
+        logs.sort(function(a,b){return (b.createdAt||"").localeCompare(a.createdAt||"");});
+        setActLog(logs.slice(0,50));
+      }).catch(function(){});
+    });
+    return function(){unsub&&unsub();};
   },[atab]);
   const[search,setSearch]=useState("");
   const[sort,setSort]=useState("newest");
@@ -2825,4 +2833,3 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
 </html>
-
