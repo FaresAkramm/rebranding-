@@ -2307,7 +2307,8 @@ function App(){
 
   async function login(){
     try{
-      const settingsDoc=await getDoc(doc(db,"settings","admin"));
+      var fb=window.__fb;
+      const settingsDoc=await fb.getDoc(fb.doc(fb.db,"settings","admin"));
       const correctPw=settingsDoc.exists()&&settingsDoc.data().password?settingsDoc.data().password:ADMIN_DEFAULT;
       if(pw===correctPw){setAdmin(true);setView("admin");setPwErr(false);setPw("");}
       else setPwErr(true);
