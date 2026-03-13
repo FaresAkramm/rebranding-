@@ -13,10 +13,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script type="module">
   import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import{getFirestore,collection,doc,setDoc,deleteDoc,onSnapshot,getDocs,query,orderBy,limit}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import{getFirestore,collection,doc,setDoc,deleteDoc,onSnapshot,getDocs,query,orderBy,limit,getDoc}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   const app=initializeApp({apiKey:"AIzaSyDyw9pT5tkE6Jz8_aamc1oK8NZk69R3sBo",authDomain:"rebranding-data-mod-56340.firebaseapp.com",projectId:"rebranding-data-mod-56340",storageBucket:"rebranding-data-mod-56340.firebasestorage.app",messagingSenderId:"696496503983",appId:"1:696496503983:web:144e09ee144d518fa2e85a"});
   const db=getFirestore(app);
-  window.__fb={db,collection,doc,setDoc,deleteDoc,onSnapshot,getDocs,query,orderBy,limit};
+  window.__fb={db,collection,doc,setDoc,deleteDoc,onSnapshot,getDocs,query,orderBy,limit,getDoc};
   window.__fbReady=true;
   window.dispatchEvent(new Event("fbReady"));
 </script>
@@ -1038,10 +1038,10 @@ function buildFullContext(accs,offs){
     } else {
       line+="\n  العروض: مفيش عروض نشطة";
     }
-    // Add trained Q&A summary
+    // Add trained Q&A — كامل مش ملخص
     var tqa=(a.trainedQA||[]).filter(function(q){return q.q&&q.a;});
     if(tqa.length>0){
-      line+="\n  معلومات إضافية: "+tqa.slice(0,3).map(function(q){return q.q+" → "+q.a;}).join(" | ");
+      line+="\n  أسئلة وأجوبة:\n"+tqa.map(function(q){return "    Q: "+q.q+"\n    A: "+q.a;}).join("\n");
     }
     parts.push(line);
   });
@@ -1359,6 +1359,35 @@ function BotWindow({accs,offs,isAdmin,onClose,onSaveQA,onAction}){
     try{
       var matched=null;
       var activeCtx="";
+
+      // البحث في الـ trainedQA مباشرة قبل الـ AI
+      function searchTrainedQA(question){
+        var lower=question.toLowerCase().trim();
+        var bestMatch=null;
+        var bestScore=0;
+        accs.forEach(function(a){
+          (a.trainedQA||[]).filter(function(q){return q.q&&q.a;}).forEach(function(qa){
+            var qLower=qa.q.toLowerCase().trim();
+            var score=0;
+            if(qLower===lower)score=100;
+            else if(qLower.includes(lower)||lower.includes(qLower))score=70;
+            else{
+              var words=lower.split(/\s+/).filter(function(w){return w.length>2;});
+              var matched=words.filter(function(w){return qLower.includes(w);});
+              score=matched.length>0?(matched.length/words.length)*50:0;
+            }
+            if(score>bestScore&&score>=40){bestScore=score;bestMatch={q:qa.q,a:qa.a,accName:a.name};}
+          });
+        });
+        return bestMatch;
+      }
+      var directMatch=searchTrainedQA(txt);
+      if(directMatch){
+        setTyping(false);
+        setMsgs([...hist,{r:"ai",t:directMatch.a}]);
+        setLoading(false);
+        return;
+      }
 
       if(lockedAcc){
         // وضع الأكونت المقفول — دايماً نبعت context الأكونت ده بس
@@ -2186,8 +2215,8 @@ function App(){
     setUndoData({type,id,data,timer});
   }
   async function undoDelete(){if(!undoData)return;clearTimeout(undoData.timer);try{const fb=window.__fb;await fb.setDoc(fb.doc(fb.db,undoData.type,undoData.id),undoData.data);msg("↩️ تم الاسترجاع");}catch(e){alert(e.message);}setUndoData(null);}
-  function delAcc(id){const data=accs.find(a=>a.id===id);if(!data)return;scheduleDelete("accounts",id,data);}
-  function delOff(id){const data=offs.find(o=>o.id===id);if(!data)return;scheduleDelete("offers",id,data);}
+  function delAcc(id){const data=accs.find(a=>a.id===id);if(!data)return;if(!window.confirm("⚠️ هتحذف أكونت: "+data.name+"\nمتأكد؟"))return;scheduleDelete("accounts",id,data);logActivity("delete_account","حذف أكونت: "+data.name,"من السايت");}
+  function delOff(id){const data=offs.find(o=>o.id===id);if(!data)return;scheduleDelete("offers",id,data);logActivity("delete_offer","حذف عرض: "+data.title,"من السايت");}
 
   /* ── Renew offer (extend 30 days from now) ── */
   async function doRenewOffer(oId){
