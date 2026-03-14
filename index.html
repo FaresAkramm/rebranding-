@@ -1387,16 +1387,21 @@ async function registerFCMToken(){
     if(perm!=="granted")return;
     const token=await fb.getToken(fb.messaging,{vapidKey:FCM_VAPID});
     if(!token)return;
-    // حفظ الـ token في Firestore
-    await fb.setDoc(fb.doc(fb.db,"fcm_tokens",token),{
-      token,createdAt:new Date().toISOString(),platform:navigator.userAgent.includes("Mobile")?"mobile":"desktop"
+    // حفظ الـ token — لو فيه user مسجل يتحفظ بـ uid، غير كده بـ token
+    var uid=window.__currentUser?window.__currentUser.uid:null;
+    var docId=uid?"user_"+uid+"_fcm":token;
+    await fb.setDoc(fb.doc(fb.db,"fcm_tokens",docId),{
+      token,uid:uid||null,
+      email:window.__currentUser?window.__currentUser.email||"":null,
+      createdAt:new Date().toISOString(),
+      updatedAt:new Date().toISOString(),
+      platform:navigator.userAgent.includes("Mobile")?"mobile":"desktop"
     });
     // استمع للـ messages وهو مفتوح
     fb.onMessage(fb.messaging,function(payload){
       const {title,body}=payload.notification||{};
       if(title)showLocalNotif(title,body||"");
     });
-    console.log("FCM token registered");
     return token;
   }catch(e){console.log("FCM error:",e.message);}
 }
@@ -2498,20 +2503,28 @@ function App(){
 
   /* ── FCM Init ── */
   const[showNotifPrompt,setShowNotifPrompt]=useState(false);
+  // Init notifications بعد ما Firebase يتجهز
   React.useEffect(()=>{
+    if(!fbOk)return;
     if(!("Notification" in window))return;
     if(Notification.permission==="granted"){
       registerFCMToken();
-      listenToNotifications();
-    } else if(Notification.permission==="default"){
-      // اعرض الـ prompt بعد 3 ثواني لو مش dismissed
-      if(!localStorage.getItem("rb_notif_dismissed")){
-        const t=setTimeout(()=>setShowNotifPrompt(true),3000);
-        return()=>clearTimeout(t);
-      }
     }
     listenToNotifications();
-  },[]);
+  },[fbOk]);
+
+  // اعرض الـ notification prompt بس بعد login
+  React.useEffect(()=>{
+    if(!user)return;
+    if(!("Notification" in window))return;
+    if(Notification.permission==="granted"){
+      registerFCMToken();return;
+    }
+    if(Notification.permission==="default"&&!localStorage.getItem("rb_notif_dismissed")){
+      const t=setTimeout(()=>setShowNotifPrompt(true),2000);
+      return()=>clearTimeout(t);
+    }
+  },[user]);
 
   /* ── تنبيه العروض القريبة ── */
   React.useEffect(()=>{
@@ -2538,9 +2551,23 @@ function App(){
     var fb=window.__fb;if(!fb||!fb.auth)return;
     var unsub=fb.onAuthStateChanged(fb.auth,function(u){
       setUser(u);
+      window.__currentUser=u||null;
       if(u){
-        // حفظ الـ FCM token مرتبط بالـ user
+        // FCM token
         if(Notification.permission==="granted")registerFCMToken();
+        // load favs from Firestore
+        fb.getDoc(fb.doc(fb.db,"user_favs",u.uid)).then(function(d){
+          if(d.exists()&&Array.isArray(d.data().favs)){
+            setFavorites(d.data().favs);
+            try{localStorage.setItem("rb_favs",JSON.stringify(d.data().favs));}catch(e){}
+          }
+        }).catch(function(){});
+        // register FCM token linked to user
+        fb.setDoc(fb.doc(fb.db,"fcm_tokens",u.uid+"_web"),{
+          uid:u.uid,email:u.email||"",displayName:u.displayName||"",
+          platform:navigator.userAgent.includes("Mobile")?"mobile":"desktop",
+          updatedAt:new Date().toISOString()
+        }).catch(function(){});
       }
     });
     return function(){unsub();};
@@ -2550,6 +2577,12 @@ function App(){
     setFavorites(function(prev){
       var next=prev.includes(accId)?prev.filter(function(x){return x!==accId;}):prev.concat([accId]);
       try{localStorage.setItem("rb_favs",JSON.stringify(next));}catch(e){}
+      // sync to Firestore if user logged in
+      var fb=window.__fb;
+      if(fb&&window.__currentUser){
+        var uid=window.__currentUser.uid;
+        fb.setDoc(fb.doc(fb.db,"user_favs",uid),{uid:uid,favs:next,updatedAt:new Date().toISOString()}).catch(function(){});
+      }
       return next;
     });
   }
@@ -3237,7 +3270,15 @@ function App(){
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+// Mount React then hide splash immediately
+const __root = ReactDOM.createRoot(document.getElementById('root'));
+__root.render(<App/>);
+// Hide splash after first paint
+requestAnimationFrame(function(){
+  requestAnimationFrame(function(){
+    if(window.__hideSplash) window.__hideSplash();
+  });
+});
 </script>
 <!-- ══ Splash Screen ══ -->
 <div id="splash">
@@ -3264,12 +3305,14 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 <div id="ptr"><span class="ptr-spin">↻</span> جاري التحديث...</div>
 
 <script>
-// Splash
+// Splash — hide after React mounts (not fixed timeout)
+window.__hideSplash=function(){
+  var s=document.getElementById('splash');
+  if(s){s.classList.add('hidden');}
+};
+// Fallback: hide after 4s max
 window.addEventListener('load',function(){
-  setTimeout(function(){
-    var s=document.getElementById('splash');
-    if(s)s.classList.add('hidden');
-  },2200);
+  setTimeout(window.__hideSplash,4000);
 });
 // Offline
 function updateOnline(){
