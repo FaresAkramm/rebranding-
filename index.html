@@ -1419,8 +1419,8 @@ async function sendPushToAll(title,body){
   }catch(e){}
 }
 
-// استمع للـ notifications الجديدة في Firestore وعرضها
-async function listenToNotifications(){
+// استمع للـ notifications — exposed on window so Babel can call it
+window.listenToNotifications=async function(){
   try{
     var fb=window.__fb;if(!fb)return;
     var lastCheck=localStorage.getItem("rb_last_notif")||new Date(Date.now()-60000).toISOString();
@@ -1437,7 +1437,7 @@ async function listenToNotifications(){
       }
     );
   }catch(e){}
-}
+};
 
 async function saveUnansweredToFB(q,accName,accId){
     try{
@@ -2510,7 +2510,7 @@ function App(){
     if(Notification.permission==="granted"){
       registerFCMToken();
     }
-    listenToNotifications();
+    if(window.listenToNotifications) window.listenToNotifications();
   },[fbOk]);
 
   // اعرض الـ notification prompt بس بعد login
@@ -3270,15 +3270,7 @@ function App(){
   );
 }
 
-// Mount React then hide splash immediately
-const __root = ReactDOM.createRoot(document.getElementById('root'));
-__root.render(<App/>);
-// Hide splash after first paint
-requestAnimationFrame(function(){
-  requestAnimationFrame(function(){
-    if(window.__hideSplash) window.__hideSplash();
-  });
-});
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 <!-- ══ Splash Screen ══ -->
 <div id="splash">
@@ -3305,14 +3297,13 @@ requestAnimationFrame(function(){
 <div id="ptr"><span class="ptr-spin">↻</span> جاري التحديث...</div>
 
 <script>
-// Splash — hide after React mounts (not fixed timeout)
+// Splash
 window.__hideSplash=function(){
   var s=document.getElementById('splash');
-  if(s){s.classList.add('hidden');}
+  if(s)s.classList.add('hidden');
 };
-// Fallback: hide after 4s max
 window.addEventListener('load',function(){
-  setTimeout(window.__hideSplash,4000);
+  setTimeout(window.__hideSplash,2500);
 });
 // Offline
 function updateOnline(){
