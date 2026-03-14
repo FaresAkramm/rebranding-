@@ -48,8 +48,8 @@ if('serviceWorker' in navigator){
 #splash .sp-ring-1{width:200px;height:200px;animation-delay:0s;}
 #splash .sp-ring-2{width:300px;height:300px;animation-delay:.4s;}
 #splash .sp-ring-3{width:420px;height:420px;animation-delay:.8s;}
-#splash .sp-logo-wrap{width:110px;height:110px;border-radius:50%;overflow:hidden;border:2.5px solid rgba(212,165,116,.5);box-shadow:0 0 40px rgba(212,165,116,.2),0 0 80px rgba(212,165,116,.08);animation:spLogoIn .8s ease forwards;opacity:0;position:relative;z-index:1;}
-#splash .sp-logo-wrap img{width:100%;height:100%;object-fit:cover;}
+#splash .sp-logo-wrap{width:120px;height:120px;border-radius:50%;overflow:hidden;border:2.5px solid rgba(212,165,116,.5);box-shadow:0 0 40px rgba(212,165,116,.2),0 0 80px rgba(212,165,116,.08);animation:spLogoIn .8s ease forwards;opacity:0;position:relative;z-index:1;flex-shrink:0;background:#0a0a0a;}
+#splash .sp-logo-wrap img{width:100%;height:100%;object-fit:cover;object-position:center;border-radius:50%;display:block;}
 #splash .sp-title{font-family:'Playfair Display',serif;font-size:2rem;color:#e8e8e8;letter-spacing:.05em;margin-top:1.4rem;animation:spFadeUp .8s .3s ease forwards;opacity:0;position:relative;z-index:1;}
 #splash .sp-sub{font-family:'Cairo',sans-serif;font-size:.6rem;color:#d4a574;letter-spacing:.35em;text-transform:uppercase;margin-top:.3rem;animation:spFadeUp .8s .5s ease forwards;opacity:0;position:relative;z-index:1;}
 #splash .sp-line{width:40px;height:1px;background:linear-gradient(90deg,transparent,rgba(212,165,116,.5),transparent);margin:.9rem 0;animation:spFadeUp .8s .6s ease forwards;opacity:0;position:relative;z-index:1;}
@@ -64,11 +64,12 @@ if('serviceWorker' in navigator){
 @keyframes dotBounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
 
 /* ── Bottom Nav (mobile only) ── */
-.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(8,8,8,0.97);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border-top:1px solid rgba(255,255,255,0.07);padding-bottom:env(safe-area-inset-bottom,0px);height:calc(60px + env(safe-area-inset-bottom,0px));}
-.bottom-nav-inner{display:flex;height:60px;align-items:stretch;}
-.bnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:none;background:transparent;color:var(--dim);font-family:'Cairo',sans-serif;font-size:.52rem;font-weight:600;transition:all .18s;position:relative;padding:0;}
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(8,8,8,0.97);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border-top:1px solid rgba(255,255,255,0.07);padding-bottom:env(safe-area-inset-bottom,0px);height:calc(64px + env(safe-area-inset-bottom,0px));}
+.bottom-nav-inner{display:flex;height:64px;align-items:stretch;}
+.bnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:none;background:transparent;color:var(--dim);font-family:'Cairo',sans-serif;font-size:.55rem;font-weight:600;transition:all .18s;position:relative;padding:0 1px;min-width:0;max-width:25%;}
 .bnav-btn.active{color:var(--hl);}
-.bnav-btn .bnav-icon{font-size:1.15rem;line-height:1;}
+.bnav-btn .bnav-icon{font-size:1.2rem;line-height:1;}
+.bnav-btn span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-size:.5rem;}
 .bnav-badge{position:absolute;top:8px;right:calc(50% - 16px);background:#ef4444;color:#fff;font-size:.45rem;font-weight:700;padding:.1rem .28rem;border-radius:10px;min-width:14px;text-align:center;}
 @media(max-width:768px){
   .bottom-nav{display:block;}
@@ -2089,7 +2090,7 @@ function TrainPage({accs,onSave,onClose}){
 }
 
 
-function LandingPage({onEnter,onAdmin,accs,offs}){
+function LandingPage({onEnter,onAdmin,onLogin,accs,offs}){
   const activeOffs=offs.filter(o=>!isExp(o.expiryDate)).length;
   const activeAccs=accs.filter(a=>a.status==="نشط").length;
   const urgentOffs=offs.filter(o=>!isExp(o.expiryDate)&&daysLeft(o.expiryDate)!==null&&daysLeft(o.expiryDate)<=3).length;
@@ -2218,7 +2219,10 @@ function LandingPage({onEnter,onAdmin,accs,offs}){
         {/* CTA buttons */}
         <div className="s5" style={{display:"flex",gap:".8rem",justifyContent:"center",flexWrap:"wrap"}}>
           <button className="land-btn-primary" onClick={onEnter}>استعرض الأكونتات ←</button>
-          <button className="land-btn-ghost" onClick={onAdmin}>🛠️ الإدارة</button>
+          <button className="land-btn-ghost" onClick={onLogin} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:".6rem"}}>
+            <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+            سجّل دخول بـ Google
+          </button>
         </div>
 
         {/* Made by */}
@@ -2490,7 +2494,7 @@ function App(){
       const settingsDoc=await fb.getDoc(fb.doc(fb.db,"settings","admin"));
       const correctPw=settingsDoc.exists()&&settingsDoc.data().password?settingsDoc.data().password:ADMIN_DEFAULT;
       if(pw===correctPw){
-        setAdmin(true);setView("admin");setPwErr(false);setPw("");
+        setAdmin(true);setView("admin");setPwErr(false);setPw("");try{localStorage.setItem("rb_admin_pw",pw);}catch(e){}
         try{localStorage.setItem("rb_admin_pw",pw);}catch(e){}
       }else setPwErr(true);
     }catch(e){
@@ -2611,12 +2615,12 @@ function App(){
       if(!saved)return;
       var fb=window.__fb;
       if(!fb){
-        if(saved===ADMIN_DEFAULT){setAdmin(true);if(view==="login")setView("admin");}
+        if(saved===ADMIN_DEFAULT){setAdmin(true);if(view==="login"||view==="admin_login")setView("admin");}
         return;
       }
       fb.getDoc(fb.doc(fb.db,"settings","admin")).then(function(doc){
         const correctPw=doc.exists()&&doc.data().password?doc.data().password:ADMIN_DEFAULT;
-        if(saved===correctPw){setAdmin(true);if(view==="login")setView("admin");}
+        if(saved===correctPw){setAdmin(true);if(view==="login"||view==="admin_login")setView("admin");}
         else{try{localStorage.removeItem("rb_admin_pw");}catch(e){}}
       }).catch(function(){
         if(saved===ADMIN_DEFAULT){setAdmin(true);}
@@ -2775,7 +2779,7 @@ function App(){
       )}
 
       {/* ── LANDING ── */}
-      {view==="landing"&&<LandingPage accs={accs} offs={offs} onEnter={()=>setView("pub")} onAdmin={()=>setView("login")}/>}
+      {view==="landing"&&<LandingPage accs={accs} offs={offs} onEnter={()=>setView("pub")} onAdmin={()=>setView("login")} onLogin={()=>setView("login")}/>}
 
       {view!=="landing"&&<>
       {/* ── NAV ── */}
@@ -2814,13 +2818,50 @@ function App(){
                 <span>{view==="admin"?"خروج":"الأدمن"}</span>
                 {view!=="admin"&&urgentCount>0&&<span className="bnav-badge">{urgentCount}</span>}
               </button>
-            :<button className={"bnav-btn"} onClick={user?googleLogout:googleLogin}>
+            :<button className={"bnav-btn"+(view==="login"||view==="admin_login"?" active":"")} onClick={()=>user?googleLogout():setView("login")}>
                 <span className="bnav-icon">{user?"🚪":"🔑"}</span>
                 <span>{user?user.displayName?.split(" ")[0]||"خروج":"دخول"}</span>
               </button>
           }
         </div>
       </nav>
+
+      {/* ═══════════════ USER LOGIN PAGE ═══════════════ */}
+      {view==="login"&&!admin&&(
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"80vh",padding:"1rem"}}>
+          <div style={{background:"#0f0f0f",border:"1px solid rgba(212,165,116,.15)",borderRadius:16,padding:"2rem 1.6rem",width:"100%",maxWidth:340,textAlign:"center"}}>
+            <div style={{width:80,height:80,borderRadius:"50%",overflow:"hidden",border:"2px solid rgba(212,165,116,.4)",margin:"0 auto 1.2rem",flexShrink:0}}>
+              <img src={LOGO} style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}} alt=""/>
+            </div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1.3rem",marginBottom:".3rem"}}>أهلاً بك</div>
+            <div style={{fontSize:".78rem",color:"var(--dim)",marginBottom:"1.8rem",lineHeight:1.6}}>سجّل دخول بـ Google عشان تحفظ مفضلتك وتستقبل الإشعارات</div>
+            <button onClick={googleLogin} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:".75rem",padding:".85rem 1rem",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.05)",color:"var(--text)",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".92rem",cursor:"pointer",marginBottom:".75rem",minHeight:52}}>
+              <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+              متابعة بـ Google
+            </button>
+            <div style={{fontSize:".65rem",color:"var(--dim)",marginBottom:"1.2rem"}}>أو</div>
+            <button onClick={()=>setView("pub")} style={{width:"100%",padding:".72rem",borderRadius:12,border:"1px solid rgba(255,255,255,.08)",background:"transparent",color:"var(--dim)",fontFamily:"'Cairo',sans-serif",fontSize:".82rem",cursor:"pointer",minHeight:44}}>تصفح بدون تسجيل</button>
+            <div style={{marginTop:"1.4rem",paddingTop:"1.2rem",borderTop:"1px solid var(--border)"}}>
+              <div style={{fontSize:".68rem",color:"var(--dim)",marginBottom:".6rem"}}>أدمن؟</div>
+              <button onClick={()=>setPw("")||setView("admin_login")} style={{background:"none",border:"none",color:"rgba(212,165,116,.5)",fontSize:".72rem",fontFamily:"'Cairo',sans-serif",cursor:"pointer"}}>دخول لوحة التحكم 🔐</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════ ADMIN LOGIN ═══════════════ */}
+      {view==="admin_login"&&(
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"80vh",padding:"1rem"}}>
+          <div style={{background:"#0f0f0f",border:"1px solid rgba(212,165,116,.15)",borderRadius:16,padding:"2rem 1.6rem",width:"100%",maxWidth:320,textAlign:"center"}}>
+            <div style={{fontSize:"1.8rem",marginBottom:".8rem"}}>🔐</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1.1rem",marginBottom:"1.4rem"}}>لوحة التحكم</div>
+            <input type="password" placeholder="كلمة المرور" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} style={{...S.inp,textAlign:"center",fontSize:"1.1rem",letterSpacing:".15em"}} autoFocus/>
+            {pwErr&&<div style={{color:"#f87171",marginBottom:".65rem",fontSize:".8rem"}}>❌ كلمة المرور غلط</div>}
+            <button onClick={login} disabled={!pw.trim()} style={{...S.pBtn,width:"100%",padding:".75rem",opacity:pw.trim()?1:.5,marginBottom:".6rem"}}>دخول 🔓</button>
+            <button onClick={()=>setView("login")} style={{background:"none",border:"none",color:"var(--dim)",fontSize:".78rem",fontFamily:"'Cairo',sans-serif",cursor:"pointer",minHeight:36,width:"100%"}}>← رجوع</button>
+          </div>
+        </div>
+      )}
 
       {/* ═══════════════ FAVORITES ═══════════════ */}
       {view==="pub"&&showFavs&&(
@@ -2922,21 +2963,7 @@ function App(){
         />
       )}
 
-      {/* ═══════════════ LOGIN ═══════════════ */}
-      {view==="login"&&(
-        <div className="page-enter" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"80vh",padding:"1rem"}}>
-          <div className="modal-box" style={{textAlign:"center",maxWidth:320,width:"100%",padding:"2rem 1.5rem"}}>
-            <div style={{width:80,height:80,borderRadius:"50%",margin:"0 auto 1.1rem",overflow:"hidden",border:"2px solid rgba(212,165,116,.38)",boxShadow:"0 0 30px rgba(212,165,116,.15)"}}><img src={LOGO} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="logo"/></div>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1.2rem",marginBottom:".3rem"}}>Rebranding</div>
-            <div style={{fontSize:".62rem",color:"var(--hl)",letterSpacing:".3em",textTransform:"uppercase",marginBottom:"1.6rem"}}>Admin Access</div>
-            <input type="password" placeholder="كلمة المرور" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} style={{...S.inp,textAlign:"center",fontSize:"1.1rem",letterSpacing:".15em",padding:".8rem 1rem"}} autoFocus/>
-            {pwErr&&<div style={{color:"#f87171",marginBottom:".6rem",fontSize:".8rem"}}>❌ كلمة المرور غلط</div>}
-            <button className="bh" onClick={login} disabled={!pw.trim()} style={{...S.pBtn,width:"100%",padding:".75rem",fontSize:".95rem",marginTop:".2rem",opacity:pw.trim()?1:.5}}>دخول 🔓</button>
-            <button onClick={()=>setView("pub")} style={{marginTop:".8rem",background:"none",border:"none",color:"var(--dim)",fontSize:".78rem",fontFamily:"'Cairo',sans-serif",minHeight:36,width:"100%"}}>← رجوع</button>
-            {admin&&<button onClick={()=>{setAdmin(false);try{localStorage.removeItem("rb_admin_pw");}catch(e){}setView("pub");}} style={{marginTop:".2rem",background:"none",border:"none",color:"#f87171",fontSize:".75rem",fontFamily:"'Cairo',sans-serif",minHeight:36,width:"100%"}}>🚪 تسجيل خروج</button>}
-          </div>
-        </div>
-      )}
+      {/* old login redirected to new login/admin_login pages above */}
 
       {/* ═══════════════ ADMIN ═══════════════ */}
       {view==="admin"&&admin&&(
