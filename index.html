@@ -25,9 +25,11 @@ if('serviceWorker' in navigator){
 <script type="module">
   import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import{getFirestore,collection,doc,setDoc,deleteDoc,onSnapshot,getDocs,query,orderBy,limit,getDoc}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import{getMessaging,getToken,onMessage}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
   const app=initializeApp({apiKey:"AIzaSyDyw9pT5tkE6Jz8_aamc1oK8NZk69R3sBo",authDomain:"rebranding-data-mod-56340.firebaseapp.com",projectId:"rebranding-data-mod-56340",storageBucket:"rebranding-data-mod-56340.firebasestorage.app",messagingSenderId:"696496503983",appId:"1:696496503983:web:144e09ee144d518fa2e85a"});
   const db=getFirestore(app);
-  window.__fb={db,collection,doc,setDoc,deleteDoc,onSnapshot,getDocs,query,orderBy,limit,getDoc};
+  const messaging=getMessaging(app);
+  window.__fb={db,collection,doc,setDoc,deleteDoc,onSnapshot,getDocs,query,orderBy,limit,getDoc,messaging,getToken,onMessage};
   window.__fbReady=true;
   window.dispatchEvent(new Event("fbReady"));
 </script>
@@ -60,6 +62,12 @@ if('serviceWorker' in navigator){
   .bottom-nav{display:block;}
   .nav-bar{display:none!important;}
   body{padding-bottom:calc(60px + env(safe-area-inset-bottom,0px));}
+  /* Landing mobile fixes */
+  .land-page-wrap{padding:1.5rem 1.2rem!important;padding-top:calc(1.5rem + var(--safe-top))!important;}
+  .land-logo-wrap{width:90px!important;height:90px!important;margin-bottom:1.2rem!important;}
+  .hide-mobile{display:none!important;}
+  /* Better touch targets */
+  .land-btn{min-height:50px!important;font-size:.95rem!important;padding:.8rem 2rem!important;}
 }
 
 /* ── Pull to Refresh ── */
@@ -164,6 +172,13 @@ input,select,textarea{outline:none;font-family:'Cairo',sans-serif;-webkit-appear
 .land-logo{animation:glowPulse 3s ease-in-out infinite;}
 .land-ring{position:absolute;border-radius:50%;border:1px solid rgba(212,165,116,0.06);pointer-events:none;}
 .land-btn-primary{padding:.85rem 2rem;border-radius:10px;border:none;font-weight:700;font-family:'Cairo',sans-serif;font-size:1rem;background:var(--hl);color:#0a0a0a;transition:all .22s;letter-spacing:.03em;min-height:50px;}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(28px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(.85);}to{opacity:1;transform:scale(1);}}
+.land-animate-1{animation:fadeInScale .7s cubic-bezier(.22,1,.36,1) both;}
+.land-animate-2{animation:fadeInUp .7s .15s cubic-bezier(.22,1,.36,1) both;}
+.land-animate-3{animation:fadeInUp .7s .3s cubic-bezier(.22,1,.36,1) both;}
+.land-animate-4{animation:fadeInUp .7s .45s cubic-bezier(.22,1,.36,1) both;}
+.land-animate-5{animation:fadeInUp .7s .6s cubic-bezier(.22,1,.36,1) both;}
 @media(hover:hover){.land-btn-primary:hover{background:var(--hld);transform:translateY(-2px);box-shadow:0 8px 24px rgba(212,165,116,0.35);}}
 .land-btn-ghost{padding:.82rem 2rem;border-radius:10px;font-weight:600;font-family:'Cairo',sans-serif;font-size:1rem;background:transparent;color:var(--dim);border:1px solid rgba(255,255,255,0.11);transition:all .22s;min-height:50px;}
 @media(hover:hover){.land-btn-ghost:hover{border-color:rgba(212,165,116,0.4);color:var(--hl);transform:translateY(-2px);}}
@@ -1328,13 +1343,98 @@ function BotWindow({accs,offs,isAdmin,onClose,onSaveQA,onAction}){
     }catch(e){}
   },[isAdmin]);
 
-  async function saveUnansweredToFB(q,accName,accId){
+  // ══ Push Notifications ══
+async function requestNotifPermission(){
+  if(!("Notification" in window))return false;
+  if(Notification.permission==="granted")return true;
+  const p=await Notification.requestPermission();
+  return p==="granted";
+}
+
+function showLocalNotif(title,body,icon){
+  if(!("Notification" in window)||Notification.permission!=="granted")return;
+  try{
+    if(navigator.serviceWorker&&navigator.serviceWorker.controller){
+      navigator.serviceWorker.ready.then(reg=>{
+        reg.showNotification(title,{body,icon:icon||"https://raw.githubusercontent.com/FaresAkramm/photo/main/re-branding.jpg",dir:"rtl",lang:"ar",vibrate:[200,100,200]});
+      });
+    } else {
+      new Notification(title,{body,icon:icon||"https://raw.githubusercontent.com/FaresAkramm/photo/main/re-branding.jpg"});
+    }
+  }catch(e){}
+}
+
+// ══ FCM Push Notifications ══
+const FCM_VAPID = "BMmV9tGXzzR5lR2FCElcgw46cvvi4v3d03cSqMr7RH2tBvBa7EgAJrNyRtcKks0I9fLUY_vzOeQwDKdXvLOAXhQ";
+
+async function registerFCMToken(){
+  try{
+    var fb=window.__fb;
+    if(!fb||!fb.messaging)return;
+    const perm=await Notification.requestPermission();
+    if(perm!=="granted")return;
+    const token=await fb.getToken(fb.messaging,{vapidKey:FCM_VAPID});
+    if(!token)return;
+    // حفظ الـ token في Firestore
+    await fb.setDoc(fb.doc(fb.db,"fcm_tokens",token),{
+      token,createdAt:new Date().toISOString(),platform:navigator.userAgent.includes("Mobile")?"mobile":"desktop"
+    });
+    // استمع للـ messages وهو مفتوح
+    fb.onMessage(fb.messaging,function(payload){
+      const {title,body}=payload.notification||{};
+      if(title)showLocalNotif(title,body||"");
+    });
+    console.log("FCM token registered");
+    return token;
+  }catch(e){console.log("FCM error:",e.message);}
+}
+
+async function sendPushToAll(title,body){
+  try{
+    var fb=window.__fb;if(!fb)return;
+    // حفظ الـ notification في Firestore — السايت بيقرأ منه
+    const id="notif_"+Date.now();
+    await fb.setDoc(fb.doc(fb.db,"notifications",id),{
+      id,title,body,createdAt:new Date().toISOString(),read:false
+    });
+    // بعت للـ Telegram برضو
+    fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({chat_id:TG_ADMIN_ID,text:"🔔 "+title+"
+"+body})
+    }).catch(function(){});
+  }catch(e){}
+}
+
+// استمع للـ notifications الجديدة في Firestore وعرضها
+async function listenToNotifications(){
+  try{
+    var fb=window.__fb;if(!fb)return;
+    var lastCheck=localStorage.getItem("rb_last_notif")||new Date(Date.now()-60000).toISOString();
+    fb.onSnapshot(
+      fb.query(fb.collection(fb.db,"notifications"),fb.orderBy("createdAt","desc"),fb.limit(1)),
+      function(snap){
+        snap.docs.forEach(function(d){
+          var n=d.data();
+          if(n.createdAt>lastCheck){
+            showLocalNotif(n.title,n.body||"");
+            localStorage.setItem("rb_last_notif",n.createdAt);
+          }
+        });
+      }
+    );
+  }catch(e){}
+}
+
+async function saveUnansweredToFB(q,accName,accId){
     try{
       var fb=window.__fb;if(!fb)return;
       var id="uq_"+Date.now();
       await fb.setDoc(fb.doc(fb.db,"unanswered_questions",id),{
         q:q,accName:accName||"عام",accId:accId||"",a:"",createdAt:new Date().toISOString()
       });
+      // Notify Admin - Local notification
+      showLocalNotif("❓ سؤال جديد!","من: "+(accName||"عام")+" — "+q.slice(0,60));
       // Notify Telegram with accId embedded
       var text="❓ سؤال جديد بدون إجابة\n\nالأكونت: "+(accName||"عام")+"\nالسؤال: "+q+"\n\nارد على الرسالة دي مباشرة وهيتحفظ تلقائي ✅\n[ID:"+id+"][AID:"+(accId||"")+"]";
       fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{
@@ -1549,6 +1649,8 @@ function BotWindow({accs,offs,isAdmin,onClose,onSaveQA,onAction}){
         badge:data.badge||"جديد",updatedAt:new Date().toISOString()
       });
       setMsgs(function(p){return [...p,{r:"ai",t:"✅ تم إضافة العرض: "+data.title+" لـ "+acc.name}];});
+      showLocalNotif("🎁 عرض جديد!","تم إضافة: "+data.title+" لـ "+acc.name);
+      logActivity("add_offer","إضافة عرض: "+data.title,"الأكونت: "+acc.name);
       setWizard(null);
     }
     else if(type==="delete_offer"){
@@ -2056,26 +2158,26 @@ function LandingPage({onEnter,onAdmin,accs,offs}){
       <div style={{textAlign:"center",zIndex:1,maxWidth:480}}>
 
         {/* Logo */}
-        <div className="s0">
+        <div className="s0 land-animate-1">
           <div className="land-logo land-logo-wrap" style={{width:118,height:118,borderRadius:"50%",overflow:"hidden",border:"2px solid rgba(212,165,116,.42)",margin:"0 auto 1.6rem",boxShadow:"0 0 40px rgba(212,165,116,.12)"}}>
             <img src={LOGO} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="logo" onError={e=>{e.target.style.display="none";e.target.parentNode.style.background="#111";e.target.parentNode.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2.2rem;font-weight:900;color:#d4a574;font-family:serif">RE</div>';}}/>
           </div>
         </div>
 
         {/* Title */}
-        <div className="s1">
+        <div className="s1 land-animate-2">
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:"clamp(2.4rem,7vw,3.4rem)",fontWeight:700,lineHeight:1.08,marginBottom:".3rem",letterSpacing:"-.01em"}}>Rebranding</div>
           <div style={{fontSize:"clamp(.58rem,2vw,.7rem)",color:"var(--hl)",letterSpacing:".35em",textTransform:"uppercase",fontFamily:"'Work Sans',sans-serif"}}>Marketing Agency</div>
           <div style={{width:28,height:1,background:"rgba(212,165,116,.25)",margin:".9rem auto"}}/>
         </div>
 
         {/* Tagline typewriter */}
-        <div className="s2" style={{marginBottom:"1.6rem",minHeight:"1.6rem"}}>
+        <div className="s2 land-animate-3" style={{marginBottom:"1.6rem",minHeight:"1.6rem"}}>
           <span style={{fontSize:"clamp(.82rem,2.8vw,.95rem)",color:"var(--dim)",fontFamily:"'Cairo',sans-serif"}}>{tagText}<span className="tagline-cursor"/></span>
         </div>
 
         {/* Stats — 4 stats */}
-        <div className="s3" style={{display:"grid",gridTemplateColumns:"1fr 1fr",margin:"0 0 1.6rem",background:"rgba(255,255,255,.025)",border:"1px solid rgba(255,255,255,.06)",borderRadius:12,overflow:"hidden"}}>
+        <div className="s3 land-animate-4" style={{display:"grid",gridTemplateColumns:"1fr 1fr",margin:"0 0 1.6rem",background:"rgba(255,255,255,.025)",border:"1px solid rgba(255,255,255,.06)",borderRadius:12,overflow:"hidden"}}>
           {[
             {val:accs.length,label:"أكونت",delay:300},
             {val:activeAccs,label:"نشط",delay:400,color:"#4ade80"},
@@ -2157,6 +2259,7 @@ function App(){
   const[toast,setToast]=useState("");
   const[view,setView]=useState("landing");
   const[admin,setAdmin]=useState(false);
+  const[autoLoginDone,setAutoLoginDone]=useState(false);
   const[pw,setPw]=useState("");
   const[pwErr,setPwErr]=useState(false);
   const[selA,setSelA]=useState(null);
@@ -2318,7 +2421,13 @@ function App(){
   }
   async function saveAcc(){
     setBusy(true);const fb=window.__fb;const id=eAid||String(Date.now());
-    try{await fb.setDoc(fb.doc(fb.db,"accounts",id),{...af,tags:af.tags.split(",").map(t=>t.trim()).filter(Boolean),links:lnks.filter(l=>l.label&&l.url),updatedAt:new Date().toISOString()});msg("✅ تم الحفظ");setShowAF(false);}
+    const isNew=!eAid;
+    try{
+      await fb.setDoc(fb.doc(fb.db,"accounts",id),{...af,tags:af.tags.split(",").map(t=>t.trim()).filter(Boolean),links:lnks.filter(l=>l.label&&l.url),updatedAt:new Date().toISOString()});
+      msg("✅ تم الحفظ");setShowAF(false);
+      if(isNew){showLocalNotif("👤 أكونت جديد!","تم إضافة: "+af.name);logActivity("add_account","إضافة أكونت: "+af.name,"من السايت");sendPushToAll("👤 أكونت جديد على Rebranding!","تم إضافة: "+af.name);}
+      else{showLocalNotif("✏️ تم التعديل","تم تعديل أكونت: "+af.name);logActivity("edit_account","تعديل أكونت: "+af.name,"من السايت");}
+    }
     catch(e){alert(e.message);}setBusy(false);
   }
 
@@ -2348,7 +2457,14 @@ function App(){
   function openOF(o=null){if(o){setOf(o);setEOid(o.id);}else{setOf(EO);setEOid(null);}setShowOF(true);}
   async function saveOff(){
     setBusy(true);const fb=window.__fb;const id=eOid||String(Date.now());
-    try{await fb.setDoc(fb.doc(fb.db,"offers",id),{...of,updatedAt:new Date().toISOString()});msg("✅ تم الحفظ");setShowOF(false);}
+    const isNew=!eOid;
+    const accName=accs.find(a=>a.id===of.accountId)?.name||"";
+    try{
+      await fb.setDoc(fb.doc(fb.db,"offers",id),{...of,updatedAt:new Date().toISOString()});
+      msg("✅ تم الحفظ");setShowOF(false);
+      if(isNew){showLocalNotif("🎁 عرض جديد!","تم إضافة: "+of.title+(accName?" لـ "+accName:""));logActivity("add_offer","إضافة عرض: "+of.title,"الأكونت: "+accName);sendPushToAll("🎁 عرض جديد على Rebranding!","تم إضافة: "+of.title+(accName?" لـ "+accName:""));}
+      else{showLocalNotif("✏️ تم التعديل","تم تعديل عرض: "+of.title);logActivity("edit_offer","تعديل عرض: "+of.title,"من السايت");sendPushToAll("✏️ تم تعديل عرض على Rebranding","عرض: "+of.title);}
+    }
     catch(e){alert(e.message);}setBusy(false);
   }
 
@@ -2357,14 +2473,67 @@ function App(){
       var fb=window.__fb;
       const settingsDoc=await fb.getDoc(fb.doc(fb.db,"settings","admin"));
       const correctPw=settingsDoc.exists()&&settingsDoc.data().password?settingsDoc.data().password:ADMIN_DEFAULT;
-      if(pw===correctPw){setAdmin(true);setView("admin");setPwErr(false);setPw("");}
-      else setPwErr(true);
+      if(pw===correctPw){
+        setAdmin(true);setView("admin");setPwErr(false);setPw("");
+        try{localStorage.setItem("rb_admin_pw",pw);}catch(e){}
+      }else setPwErr(true);
     }catch(e){
-      // Fallback to default password if Firebase fails
-      if(pw===ADMIN_DEFAULT){setAdmin(true);setView("admin");setPwErr(false);setPw("");}
-      else setPwErr(true);
+      if(pw===ADMIN_DEFAULT){
+        setAdmin(true);setView("admin");setPwErr(false);setPw("");
+        try{localStorage.setItem("rb_admin_pw",pw);}catch(e){}
+      }else setPwErr(true);
     }
   }
+
+  /* ── FCM Init ── */
+  React.useEffect(()=>{
+    if("Notification" in window && Notification.permission==="granted"){
+      registerFCMToken();
+    }
+    listenToNotifications();
+  },[]);
+
+  /* ── تنبيه العروض القريبة ── */
+  React.useEffect(()=>{
+    if(!offs.length)return;
+    var today=new Date();
+    offs.forEach(function(o){
+      if(!o.expiryDate)return;
+      var dl=Math.ceil((new Date(o.expiryDate)-today)/86400000);
+      if(dl===3||dl===1){
+        var key="rb_exp_notif_"+o.id+"_"+dl;
+        if(!localStorage.getItem(key)){
+          localStorage.setItem(key,"1");
+          sendPushToAll(
+            dl===1?"🔴 عرض بينتهي غداً!":"⚠️ عرض بينتهي خلال 3 أيام",
+            "العرض: "+o.title
+          );
+        }
+      }
+    });
+  },[offs]);
+
+  /* ── Auto-login ── */
+  React.useEffect(()=>{
+    if(autoLoginDone)return;
+    setAutoLoginDone(true);
+    try{
+      const saved=localStorage.getItem("rb_admin_pw");
+      if(!saved)return;
+      var fb=window.__fb;
+      if(!fb){
+        if(saved===ADMIN_DEFAULT){setAdmin(true);if(view==="login")setView("admin");}
+        return;
+      }
+      fb.getDoc(fb.doc(fb.db,"settings","admin")).then(function(doc){
+        const correctPw=doc.exists()&&doc.data().password?doc.data().password:ADMIN_DEFAULT;
+        if(saved===correctPw){setAdmin(true);if(view==="login")setView("admin");}
+        else{try{localStorage.removeItem("rb_admin_pw");}catch(e){}}
+      }).catch(function(){
+        if(saved===ADMIN_DEFAULT){setAdmin(true);}
+      });
+    }catch(e){}
+  },[]);
 
   /* ── Derived data ── */
   const urgentCount=offs.filter(o=>!isExp(o.expiryDate)&&daysLeft(o.expiryDate)!==null&&daysLeft(o.expiryDate)<=3).length;
@@ -2503,6 +2672,7 @@ function App(){
           <button className="bh" onClick={()=>setView("landing")} style={NB(false)}>🏠</button>
           <button className="bh" onClick={()=>setView("pub")} style={NB(view==="pub")}>🌐</button>
           {admin?<button className="bh" onClick={()=>setView("admin")} style={NB(view==="admin")}>🛠️</button>:<button className="bh" onClick={()=>setView("login")} style={NB(false)}>🔐</button>}
+          {admin&&<button className="bh" onClick={()=>{setAdmin(false);try{localStorage.removeItem("rb_admin_pw");}catch(e){}setView("pub");msg("👋 تم الخروج");}} style={{...NB(false),color:"#f87171",fontSize:".7rem"}} title="خروج">🚪</button>}
         </div>
       </nav>
 
@@ -2519,9 +2689,10 @@ function App(){
             <span className="bnav-icon">💬</span><span>المساعد</span>
           </button>
           {admin
-            ?<button className={"bnav-btn"+(view==="admin"?" active":"")} onClick={()=>setView("admin")}>
-                <span className="bnav-icon">🛠️</span><span>الأدمن</span>
-                {urgentCount>0&&<span className="bnav-badge">{urgentCount}</span>}
+            ?<button className={"bnav-btn"+(view==="admin"?" active":"")} onClick={()=>view==="admin"?[setAdmin(false),localStorage.removeItem("rb_admin_pw"),setView("pub")]:setView("admin")}>
+                <span className="bnav-icon">{view==="admin"?"🚪":"🛠️"}</span>
+                <span>{view==="admin"?"خروج":"الأدمن"}</span>
+                {view!=="admin"&&urgentCount>0&&<span className="bnav-badge">{urgentCount}</span>}
               </button>
             :<button className={"bnav-btn"+(view==="login"?" active":"")} onClick={()=>setView("login")}>
                 <span className="bnav-icon">🔐</span><span>دخول</span>
@@ -2544,6 +2715,14 @@ function App(){
               <div style={{width:1,background:"var(--border)"}}/>
               <div style={{textAlign:"center"}}><div style={{fontSize:"1.5rem",fontWeight:700,color:"var(--hl)",fontFamily:"'Playfair Display',serif"}}>{offs.filter(o=>!isExp(o.expiryDate)).length}</div><div style={{fontSize:".6rem",color:"var(--dim)",letterSpacing:".15em",textTransform:"uppercase"}}>عرض نشط</div></div>
             </div>
+            {"Notification" in window && Notification.permission!=="granted" && (
+              <button onClick={async()=>{await requestNotifPermission();}} style={{marginTop:"1rem",background:"rgba(212,165,116,.08)",border:"1px solid rgba(212,165,116,.25)",color:"var(--hl)",borderRadius:20,padding:".4rem 1.1rem",fontFamily:"'Cairo',sans-serif",fontSize:".75rem",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:".4rem",margin:".8rem auto 0"}}>
+                🔔 اشترك في إشعارات العروض الجديدة
+              </button>
+            )}
+            {"Notification" in window && Notification.permission==="granted" && (
+              <div style={{marginTop:".6rem",fontSize:".65rem",color:"#4ade80",display:"flex",alignItems:"center",gap:".3rem",justifyContent:"center"}}>✓ مشترك في الإشعارات</div>
+            )}
           </div>
 
           <div className="tab-bar">
@@ -2597,13 +2776,15 @@ function App(){
       {/* ═══════════════ LOGIN ═══════════════ */}
       {view==="login"&&(
         <div className="page-enter" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"80vh",padding:"1rem"}}>
-          <div className="modal-box" style={{textAlign:"center",maxWidth:300}}>
-            <div style={{width:68,height:68,borderRadius:"50%",margin:"0 auto .9rem",overflow:"hidden",border:"1px solid rgba(212,165,116,.38)"}}><img src={LOGO} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="logo"/></div>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1.1rem",marginBottom:"1.3rem"}}>Admin Access</div>
-            <input type="password" placeholder="كلمة المرور" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} style={{...S.inp,textAlign:"center"}}/>
+          <div className="modal-box" style={{textAlign:"center",maxWidth:320,width:"100%",padding:"2rem 1.5rem"}}>
+            <div style={{width:80,height:80,borderRadius:"50%",margin:"0 auto 1.1rem",overflow:"hidden",border:"2px solid rgba(212,165,116,.38)",boxShadow:"0 0 30px rgba(212,165,116,.15)"}}><img src={LOGO} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="logo"/></div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1.2rem",marginBottom:".3rem"}}>Rebranding</div>
+            <div style={{fontSize:".62rem",color:"var(--hl)",letterSpacing:".3em",textTransform:"uppercase",marginBottom:"1.6rem"}}>Admin Access</div>
+            <input type="password" placeholder="كلمة المرور" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} style={{...S.inp,textAlign:"center",fontSize:"1.1rem",letterSpacing:".15em",padding:".8rem 1rem"}} autoFocus/>
             {pwErr&&<div style={{color:"#f87171",marginBottom:".6rem",fontSize:".8rem"}}>❌ كلمة المرور غلط</div>}
-            <button className="bh" onClick={login} style={{...S.pBtn,width:"100%"}}>دخول</button>
-            <button onClick={()=>setView("pub")} style={{marginTop:".7rem",background:"none",border:"none",color:"var(--dim)",fontSize:".78rem",fontFamily:"'Cairo',sans-serif",minHeight:36}}>رجوع</button>
+            <button className="bh" onClick={login} disabled={!pw.trim()} style={{...S.pBtn,width:"100%",padding:".75rem",fontSize:".95rem",marginTop:".2rem",opacity:pw.trim()?1:.5}}>دخول 🔓</button>
+            <button onClick={()=>setView("pub")} style={{marginTop:".8rem",background:"none",border:"none",color:"var(--dim)",fontSize:".78rem",fontFamily:"'Cairo',sans-serif",minHeight:36,width:"100%"}}>← رجوع</button>
+            {admin&&<button onClick={()=>{setAdmin(false);try{localStorage.removeItem("rb_admin_pw");}catch(e){}setView("pub");}} style={{marginTop:".2rem",background:"none",border:"none",color:"#f87171",fontSize:".75rem",fontFamily:"'Cairo',sans-serif",minHeight:36,width:"100%"}}>🚪 تسجيل خروج</button>}
           </div>
         </div>
       )}
@@ -2612,7 +2793,16 @@ function App(){
       {view==="admin"&&admin&&(
         <div className="page-enter" style={{maxWidth:1000,margin:"0 auto",padding:"1.6rem 1.1rem"}}>
 
-          {/* Backup reminder banner */}
+          {/* Notification permission banner */}
+          {"Notification" in window && Notification.permission === "default" && (
+            <div style={{display:"flex",alignItems:"center",gap:".7rem",padding:".8rem 1rem",background:"rgba(212,165,116,.07)",border:"1px solid rgba(212,165,116,.2)",borderRadius:10,marginBottom:"1rem",fontSize:".8rem",color:"var(--dim)"}}>
+              <span style={{fontSize:"1.2rem"}}>🔔</span>
+              <div style={{flex:1}}>فعّل الإشعارات عشان تعرف لما يجي سؤال جديد أو تعديل</div>
+              <button onClick={async()=>{await requestNotifPermission();await registerFCMToken();msg("✅ تم تفعيل الإشعارات!");}} style={{...S.pBtn,padding:".4rem .85rem",fontSize:".74rem",whiteSpace:"nowrap"}}>تفعيل 🔔</button>
+            </div>
+          )}
+
+        {/* Backup reminder banner */}
           {showBackupReminder&&(
             <div className="reminder-banner">
               <span style={{fontSize:"1.2rem"}}>💾</span>
