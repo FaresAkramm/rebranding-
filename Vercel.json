@@ -20,6 +20,6 @@
     }
   ],
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/rebranding-site-v14.html" }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
