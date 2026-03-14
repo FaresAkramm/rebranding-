@@ -39,16 +39,25 @@ if('serviceWorker' in navigator){
 :root{--primary:#0a0a0a;--hl:#d4a574;--hld:#b8915f;--text:#e8e8e8;--dim:#a8a8a8;--card:rgba(255,255,255,0.03);--border:rgba(255,255,255,0.08);--safe-bottom:env(safe-area-inset-bottom,0px);--safe-top:env(safe-area-inset-top,0px);}
 
 /* ── Splash Screen ── */
-#splash{position:fixed;inset:0;background:#0a0a0a;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;transition:opacity .5s ease,visibility .5s ease;}
+#splash{position:fixed;inset:0;background:#0a0a0a;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;transition:opacity .6s ease,visibility .6s ease;}
 #splash.hidden{opacity:0;visibility:hidden;pointer-events:none;}
-#splash img{width:90px;height:90px;border-radius:50%;border:2px solid rgba(212,165,116,.4);object-fit:cover;animation:splashPulse 1.5s ease-in-out infinite;}
-#splash .splash-title{font-family:'Playfair Display',serif;font-size:1.5rem;color:#e8e8e8;letter-spacing:.1em;}
-#splash .splash-sub{font-family:'Cairo',sans-serif;font-size:.65rem;color:#d4a574;letter-spacing:.3em;text-transform:uppercase;}
-#splash .splash-dots{display:flex;gap:.4rem;}
-#splash .splash-dot{width:6px;height:6px;border-radius:50%;background:#d4a574;animation:dotBounce 1.2s ease-in-out infinite;}
-#splash .splash-dot:nth-child(2){animation-delay:.2s;}
-#splash .splash-dot:nth-child(3){animation-delay:.4s;}
-@keyframes splashPulse{0%,100%{box-shadow:0 0 0 0 rgba(212,165,116,.3);}50%{box-shadow:0 0 0 12px rgba(212,165,116,0);}}
+#splash .sp-ring{position:absolute;border-radius:50%;border:1px solid rgba(212,165,116,.08);animation:spRingPulse 3s ease-in-out infinite;}
+#splash .sp-ring-1{width:200px;height:200px;animation-delay:0s;}
+#splash .sp-ring-2{width:300px;height:300px;animation-delay:.4s;}
+#splash .sp-ring-3{width:420px;height:420px;animation-delay:.8s;}
+#splash .sp-logo-wrap{width:110px;height:110px;border-radius:50%;overflow:hidden;border:2.5px solid rgba(212,165,116,.5);box-shadow:0 0 40px rgba(212,165,116,.2),0 0 80px rgba(212,165,116,.08);animation:spLogoIn .8s ease forwards;opacity:0;position:relative;z-index:1;}
+#splash .sp-logo-wrap img{width:100%;height:100%;object-fit:cover;}
+#splash .sp-title{font-family:'Playfair Display',serif;font-size:2rem;color:#e8e8e8;letter-spacing:.05em;margin-top:1.4rem;animation:spFadeUp .8s .3s ease forwards;opacity:0;position:relative;z-index:1;}
+#splash .sp-sub{font-family:'Cairo',sans-serif;font-size:.6rem;color:#d4a574;letter-spacing:.35em;text-transform:uppercase;margin-top:.3rem;animation:spFadeUp .8s .5s ease forwards;opacity:0;position:relative;z-index:1;}
+#splash .sp-line{width:40px;height:1px;background:linear-gradient(90deg,transparent,rgba(212,165,116,.5),transparent);margin:.9rem 0;animation:spFadeUp .8s .6s ease forwards;opacity:0;position:relative;z-index:1;}
+#splash .sp-dots{display:flex;gap:.5rem;animation:spFadeUp .8s .7s ease forwards;opacity:0;position:relative;z-index:1;}
+#splash .sp-dot{width:5px;height:5px;border-radius:50%;background:#d4a574;animation:spDotBounce 1.4s ease-in-out infinite;}
+#splash .sp-dot:nth-child(2){animation-delay:.15s;}
+#splash .sp-dot:nth-child(3){animation-delay:.3s;}
+@keyframes spRingPulse{0%,100%{opacity:.4;transform:scale(1);}50%{opacity:.12;transform:scale(1.04);}}
+@keyframes spLogoIn{0%{opacity:0;transform:scale(.7);}60%{transform:scale(1.05);}100%{opacity:1;transform:scale(1);}}
+@keyframes spFadeUp{0%{opacity:0;transform:translateY(12px);}100%{opacity:1;transform:translateY(0);}}
+@keyframes spDotBounce{0%,100%{transform:translateY(0);opacity:.5;}50%{transform:translateY(-7px);opacity:1;}}
 @keyframes dotBounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
 
 /* ── Bottom Nav (mobile only) ── */
@@ -1392,16 +1401,12 @@ async function registerFCMToken(){
 async function sendPushToAll(title,body){
   try{
     var fb=window.__fb;if(!fb)return;
-    // حفظ الـ notification في Firestore — السايت بيقرأ منه
     const id="notif_"+Date.now();
-    await fb.setDoc(fb.doc(fb.db,"notifications",id),{
-      id,title,body,createdAt:new Date().toISOString(),read:false
-    });
-    // بعت للـ Telegram برضو
-    fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({chat_id:TG_ADMIN_ID,text:"🔔 "+title+"
-"+body})
+    await fb.setDoc(fb.doc(fb.db,"notifications",id),{id,title,body,createdAt:new Date().toISOString(),read:false});
+    var tgMsg="\uD83D\uDD14 "+title+"\n"+body+"\n\n\uD83D\uDCF1 Rebranding Data Mod";
+    fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:TG_ADMIN_ID,text:tgMsg})}).catch(function(){});
+    fb.getDocs(fb.collection(fb.db,"telegram_subscribers")).then(function(snap){
+      snap.docs.forEach(function(d){var s=d.data();if(s.chatId&&s.chatId!==String(TG_ADMIN_ID)){fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:s.chatId,text:tgMsg})}).catch(function(){});}});
     }).catch(function(){});
   }catch(e){}
 }
@@ -2486,9 +2491,18 @@ function App(){
   }
 
   /* ── FCM Init ── */
+  const[showNotifPrompt,setShowNotifPrompt]=useState(false);
   React.useEffect(()=>{
-    if("Notification" in window && Notification.permission==="granted"){
+    if(!("Notification" in window))return;
+    if(Notification.permission==="granted"){
       registerFCMToken();
+      listenToNotifications();
+    } else if(Notification.permission==="default"){
+      // اعرض الـ prompt بعد 3 ثواني لو مش dismissed
+      if(!localStorage.getItem("rb_notif_dismissed")){
+        const t=setTimeout(()=>setShowNotifPrompt(true),3000);
+        return()=>clearTimeout(t);
+      }
     }
     listenToNotifications();
   },[]);
@@ -2651,6 +2665,23 @@ function App(){
               <button onClick={()=>setShowImport(false)} style={S.ghost}>إلغاء</button>
               <button onClick={doImport} disabled={busy} style={{...S.pBtn,opacity:busy?.6:1}}>{busy?"⏳...":"استيراد ✓"}</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Notification Prompt ── */}
+      {showNotifPrompt&&(
+        <div style={{position:"fixed",bottom:"calc(80px + env(safe-area-inset-bottom,0px))",left:"1rem",right:"1rem",zIndex:999,background:"#1a1a1a",border:"1px solid rgba(212,165,116,.3)",borderRadius:16,padding:"1.1rem 1.2rem",boxShadow:"0 8px 32px rgba(0,0,0,.6)",animation:"slideUp .3s ease"}}>
+          <div style={{display:"flex",alignItems:"center",gap:".8rem",marginBottom:".8rem"}}>
+            <span style={{fontSize:"1.5rem"}}>🔔</span>
+            <div>
+              <div style={{fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".9rem",color:"var(--text)"}}>اشترك في الإشعارات</div>
+              <div style={{fontSize:".72rem",color:"var(--dim)",marginTop:".15rem"}}>اعرف على طول لما يتضاف عرض جديد أو أكونت</div>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:".6rem"}}>
+            <button onClick={async()=>{setShowNotifPrompt(false);await requestNotifPermission();await registerFCMToken();}} style={{flex:1,background:"var(--hl)",color:"#0a0a0a",border:"none",borderRadius:10,padding:".6rem",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".85rem",cursor:"pointer"}}>اشترك ✓</button>
+            <button onClick={()=>{setShowNotifPrompt(false);localStorage.setItem("rb_notif_dismissed","1");}} style={{flex:1,background:"rgba(255,255,255,.06)",color:"var(--dim)",border:"1px solid rgba(255,255,255,.1)",borderRadius:10,padding:".6rem",fontFamily:"'Cairo',sans-serif",fontSize:".82rem",cursor:"pointer"}}>مش دلوقتي</button>
           </div>
         </div>
       )}
@@ -3121,6 +3152,59 @@ function App(){
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+<!-- ══ Splash Screen ══ -->
+<div id="splash">
+  <div class="sp-ring sp-ring-1"></div>
+  <div class="sp-ring sp-ring-2"></div>
+  <div class="sp-ring sp-ring-3"></div>
+  <div class="sp-logo-wrap">
+    <img src="https://raw.githubusercontent.com/FaresAkramm/photo/main/re-branding.jpg" alt="Rebranding" onerror="this.parentNode.style.background='rgba(212,165,116,.1)';this.style.display='none';this.parentNode.innerHTML+='<div style=\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:900;color:#d4a574;font-family:serif\'>RE</div>';"/>
+  </div>
+  <div class="sp-title">Rebranding</div>
+  <div class="sp-sub">Marketing Agency</div>
+  <div class="sp-line"></div>
+  <div class="sp-dots">
+    <div class="sp-dot"></div>
+    <div class="sp-dot"></div>
+    <div class="sp-dot"></div>
+  </div>
+</div>
+
+<!-- Offline Banner -->
+<div id="offline-banner">⚠️ مفيش إنترنت — بتشوف آخر بيانات محملة</div>
+
+<!-- Pull to Refresh -->
+<div id="ptr"><span class="ptr-spin">↻</span> جاري التحديث...</div>
+
+<script>
+// Splash
+window.addEventListener('load',function(){
+  setTimeout(function(){
+    var s=document.getElementById('splash');
+    if(s)s.classList.add('hidden');
+  },2200);
+});
+// Offline
+function updateOnline(){
+  var b=document.getElementById('offline-banner');
+  if(!b)return;
+  navigator.onLine?b.classList.remove('show'):b.classList.add('show');
+}
+window.addEventListener('online',updateOnline);
+window.addEventListener('offline',updateOnline);
+updateOnline();
+// Pull to Refresh
+(function(){
+  var ptr=document.getElementById('ptr'),startY=0,isPulling=false;
+  document.addEventListener('touchstart',function(e){if(window.scrollY===0){startY=e.touches[0].clientY;isPulling=true;}},{passive:true});
+  document.addEventListener('touchmove',function(e){if(!isPulling)return;if(e.touches[0].clientY-startY>30&&ptr)ptr.classList.add('visible')},{passive:true});
+  document.addEventListener('touchend',function(e){if(!isPulling)return;isPulling=false;var diff=e.changedTouches[0].clientY-startY;if(ptr)ptr.classList.remove('visible');if(diff>80)window.location.reload();},{passive:true});
+})();
+// Service Worker
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(function(){});
+}
 </script>
 </body>
 </html>
