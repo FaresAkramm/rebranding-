@@ -26,10 +26,13 @@ if('serviceWorker' in navigator){
   import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import{getFirestore,collection,doc,setDoc,deleteDoc,onSnapshot,getDocs,query,orderBy,limit,getDoc}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import{getMessaging,getToken,onMessage}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
+  import{getAuth,signInWithPopup,GoogleAuthProvider,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   const app=initializeApp({apiKey:"AIzaSyDyw9pT5tkE6Jz8_aamc1oK8NZk69R3sBo",authDomain:"rebranding-data-mod-56340.firebaseapp.com",projectId:"rebranding-data-mod-56340",storageBucket:"rebranding-data-mod-56340.firebasestorage.app",messagingSenderId:"696496503983",appId:"1:696496503983:web:144e09ee144d518fa2e85a"});
   const db=getFirestore(app);
   const messaging=getMessaging(app);
-  window.__fb={db,collection,doc,setDoc,deleteDoc,onSnapshot,getDocs,query,orderBy,limit,getDoc,messaging,getToken,onMessage};
+  const auth=getAuth(app);
+  const googleProvider=new GoogleAuthProvider();
+  window.__fb={db,collection,doc,setDoc,deleteDoc,onSnapshot,getDocs,query,orderBy,limit,getDoc,messaging,getToken,onMessage,auth,signInWithPopup,googleProvider,signOut,onAuthStateChanged};
   window.__fbReady=true;
   window.dispatchEvent(new Event("fbReady"));
 </script>
@@ -2265,6 +2268,8 @@ function App(){
   const[view,setView]=useState("landing");
   const[admin,setAdmin]=useState(false);
   const[autoLoginDone,setAutoLoginDone]=useState(false);
+  const[user,setUser]=useState(null); // Google user
+  const[favorites,setFavorites]=useState(()=>{try{return JSON.parse(localStorage.getItem("rb_favs")||"[]");}catch(e){return [];}});
   const[pw,setPw]=useState("");
   const[pwErr,setPwErr]=useState(false);
   const[selA,setSelA]=useState(null);
@@ -2301,6 +2306,7 @@ function App(){
   const[showQR,setShowQR]=useState(null);// acc for QR modal
   const[filterPinned,setFilterPinned]=useState(false);
   const[showPublicBot,setShowPublicBot]=useState(false);
+  const[showFavs,setShowFavs]=useState(false);
   const[showAdminBot,setShowAdminBot]=useState(false);
   const[showTrain,setShowTrain]=useState(false);
   const[pendingQCount,setPendingQCount]=useState(0);
@@ -2430,7 +2436,7 @@ function App(){
     try{
       await fb.setDoc(fb.doc(fb.db,"accounts",id),{...af,tags:af.tags.split(",").map(t=>t.trim()).filter(Boolean),links:lnks.filter(l=>l.label&&l.url),updatedAt:new Date().toISOString()});
       msg("✅ تم الحفظ");setShowAF(false);
-      if(isNew){showLocalNotif("👤 أكونت جديد!","تم إضافة: "+af.name);logActivity("add_account","إضافة أكونت: "+af.name,"من السايت");sendPushToAll("👤 أكونت جديد على Rebranding!","تم إضافة: "+af.name);}
+      if(isNew){showLocalNotif("👤 أكونت جديد!","تم إضافة: "+af.name);logActivity("add_account","إضافة أكونت: "+af.name,"من السايت");sendPushToAll("👤 أكونت جديد — "+af.name,"انضم لـ Rebranding Data Mod ✨");}
       else{showLocalNotif("✏️ تم التعديل","تم تعديل أكونت: "+af.name);logActivity("edit_account","تعديل أكونت: "+af.name,"من السايت");}
     }
     catch(e){alert(e.message);}setBusy(false);
@@ -2467,8 +2473,8 @@ function App(){
     try{
       await fb.setDoc(fb.doc(fb.db,"offers",id),{...of,updatedAt:new Date().toISOString()});
       msg("✅ تم الحفظ");setShowOF(false);
-      if(isNew){showLocalNotif("🎁 عرض جديد!","تم إضافة: "+of.title+(accName?" لـ "+accName:""));logActivity("add_offer","إضافة عرض: "+of.title,"الأكونت: "+accName);sendPushToAll("🎁 عرض جديد على Rebranding!","تم إضافة: "+of.title+(accName?" لـ "+accName:""));}
-      else{showLocalNotif("✏️ تم التعديل","تم تعديل عرض: "+of.title);logActivity("edit_offer","تعديل عرض: "+of.title,"من السايت");sendPushToAll("✏️ تم تعديل عرض على Rebranding","عرض: "+of.title);}
+      if(isNew){showLocalNotif("🎁 عرض جديد!","تم إضافة: "+of.title+(accName?" لـ "+accName:""));logActivity("add_offer","إضافة عرض: "+of.title,"الأكونت: "+accName);sendPushToAll("🎁 عرض جديد — "+(accName||"Rebranding"),of.title+(of.expiryDate?" · ينتهي "+of.expiryDate:""));}
+      else{showLocalNotif("✏️ تم التعديل","تم تعديل عرض: "+of.title);logActivity("edit_offer","تعديل عرض: "+of.title,"من السايت");sendPushToAll("✏️ تم تحديث عرض — "+(accs.find(a=>a.id===of.accountId)?.name||"Rebranding"),of.title);}
     }
     catch(e){alert(e.message);}setBusy(false);
   }
@@ -2519,13 +2525,49 @@ function App(){
         if(!localStorage.getItem(key)){
           localStorage.setItem(key,"1");
           sendPushToAll(
-            dl===1?"🔴 عرض بينتهي غداً!":"⚠️ عرض بينتهي خلال 3 أيام",
-            "العرض: "+o.title
+            dl===1?"🔴 ينتهي غداً — "+o.title:"⚠️ ينتهي خلال 3 أيام — "+o.title,
+            "لا تفوتك الفرصة! 🔥"
           );
         }
       }
     });
   },[offs]);
+
+  /* ── Google Auth ── */
+  React.useEffect(()=>{
+    var fb=window.__fb;if(!fb||!fb.auth)return;
+    var unsub=fb.onAuthStateChanged(fb.auth,function(u){
+      setUser(u);
+      if(u){
+        // حفظ الـ FCM token مرتبط بالـ user
+        if(Notification.permission==="granted")registerFCMToken();
+      }
+    });
+    return function(){unsub();};
+  },[]);
+
+  function toggleFav(accId){
+    setFavorites(function(prev){
+      var next=prev.includes(accId)?prev.filter(function(x){return x!==accId;}):prev.concat([accId]);
+      try{localStorage.setItem("rb_favs",JSON.stringify(next));}catch(e){}
+      return next;
+    });
+  }
+
+  async function googleLogin(){
+    try{
+      var fb=window.__fb;if(!fb)return;
+      await fb.signInWithPopup(fb.auth,fb.googleProvider);
+    }catch(e){msg("❌ فشل تسجيل الدخول: "+e.message);}
+  }
+
+  async function googleLogout(){
+    try{
+      var fb=window.__fb;if(!fb)return;
+      await fb.signOut(fb.auth);
+      setUser(null);
+    }catch(e){}
+  }
 
   /* ── Auto-login ── */
   React.useEffect(()=>{
@@ -2556,7 +2598,20 @@ function App(){
   const fAccs=useMemo(()=>{
     let list=cat==="كل شيء"?accs:accs.filter(a=>a.category===cat);
     if(filterPinned)list=list.filter(a=>a.pinned);
-    if(search.trim()){const q=search.trim().toLowerCase();list=list.filter(a=>(a.name||"").toLowerCase().includes(q)||(a.description||"").toLowerCase().includes(q)||(a.tags||[]).some(t=>t.toLowerCase().includes(q)));}
+    if(search.trim()){
+      const q=search.trim().toLowerCase();
+      list=list.filter(a=>
+        (a.name||"").toLowerCase().includes(q)||
+        (a.description||"").toLowerCase().includes(q)||
+        (a.category||"").toLowerCase().includes(q)||
+        (a.tags||[]).some(t=>t.toLowerCase().includes(q))||
+        (a.fixedReply||"").toLowerCase().includes(q)||
+        (a.timesReply||"").toLowerCase().includes(q)||
+        (a.contactReply||"").toLowerCase().includes(q)||
+        (a.extraReplies||[]).some(r=>(r.text||"").toLowerCase().includes(q)||(r.label||"").toLowerCase().includes(q))||
+        (a.trainedQA||[]).some(qa=>(qa.q||"").toLowerCase().includes(q)||(qa.a||"").toLowerCase().includes(q))
+      );
+    }
     if(sort==="alpha")list=[...list].sort((a,b)=>(a.name||"").localeCompare(b.name||"","ar"));
     else if(sort==="oldest")list=[...list].sort((a,b)=>a.id-b.id);
     else list=[...list].sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)||b.id-a.id);
@@ -2710,11 +2765,12 @@ function App(){
       {/* ── Bottom Nav (mobile) ── */}
       <nav className="bottom-nav">
         <div className="bottom-nav-inner">
-          <button className={"bnav-btn"+(view==="landing"?" active":"")} onClick={()=>setView("landing")}>
+          <button className={"bnav-btn"+(view==="pub"&&!showFavs?" active":"")} onClick={()=>{setView("pub");setShowFavs(false);}}>
             <span className="bnav-icon">🏠</span><span>الرئيسية</span>
           </button>
-          <button className={"bnav-btn"+(view==="pub"?" active":"")} onClick={()=>setView("pub")}>
-            <span className="bnav-icon">🌐</span><span>الأكونتات</span>
+          <button className={"bnav-btn"+(showFavs?" active":"")} onClick={()=>{setView("pub");setShowFavs(!showFavs);}}>
+            <span className="bnav-icon">⭐</span><span>المفضلة</span>
+            {favorites.length>0&&<span className="bnav-badge">{favorites.length}</span>}
           </button>
           <button className={"bnav-btn"+(showPublicBot?" active":"")} onClick={()=>setShowPublicBot(!showPublicBot)}>
             <span className="bnav-icon">💬</span><span>المساعد</span>
@@ -2725,15 +2781,44 @@ function App(){
                 <span>{view==="admin"?"خروج":"الأدمن"}</span>
                 {view!=="admin"&&urgentCount>0&&<span className="bnav-badge">{urgentCount}</span>}
               </button>
-            :<button className={"bnav-btn"+(view==="login"?" active":"")} onClick={()=>setView("login")}>
-                <span className="bnav-icon">🔐</span><span>دخول</span>
+            :<button className={"bnav-btn"} onClick={user?googleLogout:googleLogin}>
+                <span className="bnav-icon">{user?"🚪":"🔑"}</span>
+                <span>{user?user.displayName?.split(" ")[0]||"خروج":"دخول"}</span>
               </button>
           }
         </div>
       </nav>
 
+      {/* ═══════════════ FAVORITES ═══════════════ */}
+      {view==="pub"&&showFavs&&(
+        <div className="page-enter" style={{maxWidth:1100,margin:"0 auto",padding:"1.8rem 1.1rem"}}>
+          <div style={{display:"flex",alignItems:"center",gap:".7rem",marginBottom:"1.4rem"}}>
+            <span style={{fontSize:"1.4rem"}}>⭐</span>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1.2rem"}}>المفضلة</div>
+            <span style={{fontSize:".7rem",color:"var(--dim)",marginRight:"auto"}}>{favorites.length} أكونت</span>
+          </div>
+          {favorites.length===0?(
+            <div style={{textAlign:"center",padding:"3rem",color:"var(--dim)"}}>
+              <div style={{fontSize:"2rem",marginBottom:"1rem"}}>⭐</div>
+              <div>مفيش أكونتات في المفضلة لحد دلوقتي</div>
+              <div style={{fontSize:".78rem",marginTop:".5rem"}}>اضغط ⭐ على أي أكونت تحبه</div>
+            </div>
+          ):(
+            <div style={{display:"grid",gap:".7rem"}}>
+              {accs.filter(a=>favorites.includes(a.id)).map(a=>(
+                <div key={a.id} onClick={()=>setSelA(a)} style={{background:"var(--card)",border:"1px solid rgba(212,165,116,.2)",borderRadius:12,padding:"1rem 1.1rem",display:"flex",alignItems:"center",gap:".9rem",cursor:"pointer",position:"relative"}}>
+                  {a.avatar?<img src={a.avatar} style={{width:46,height:46,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(212,165,116,.3)",flexShrink:0}} alt=""/>:<div style={{width:46,height:46,borderRadius:"50%",background:"rgba(212,165,116,.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.2rem",flexShrink:0}}>🏪</div>}
+                  <div style={{flex:1}}><div style={{fontWeight:700,fontFamily:"'Playfair Display',serif"}}>{a.name}</div><div style={{fontSize:".72rem",color:"var(--dim)"}}>{a.category}</div></div>
+                  <button onClick={e=>{e.stopPropagation();toggleFav(a.id);}} style={{background:"rgba(212,165,116,.1)",border:"1px solid rgba(212,165,116,.2)",color:"var(--hl)",borderRadius:8,padding:".3rem .6rem",fontSize:".75rem",cursor:"pointer"}}>🗑️</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ═══════════════ PUBLIC ═══════════════ */}
-      {view==="pub"&&!profileAcc&&(
+      {view==="pub"&&!profileAcc&&!showFavs&&(
         <div className="page-enter" style={{maxWidth:1100,margin:"0 auto",padding:"1.8rem 1.1rem"}}>
           <div style={{textAlign:"center",padding:"2.2rem 1rem 1.8rem",borderBottom:"1px solid var(--border)",marginBottom:"2.2rem"}}>
             <div style={{width:92,height:92,borderRadius:"50%",margin:"0 auto .9rem",overflow:"hidden",border:"2px solid rgba(212,165,116,.38)",boxShadow:"0 0 28px rgba(212,165,116,.12)"}}>
@@ -2996,7 +3081,8 @@ function App(){
             <div style={{display:"flex",gap:".85rem",alignItems:"center",marginBottom:".85rem"}}>
               {selA.avatar&&<img src={selA.avatar} style={{width:56,height:56,borderRadius:"50%",border:"2px solid var(--hl)",objectFit:"cover"}} alt=""/>}
               <div style={{flex:1}}><div style={{fontSize:"1.15rem",fontWeight:700,fontFamily:"'Playfair Display',serif"}}>{selA.name}</div><div style={{color:"var(--dim)",fontSize:".7rem"}}>{selA.category}{selA.joinedDate&&" · "+fmtDate(selA.joinedDate)}</div></div>
-              <button onClick={e=>shareAcc(selA,e)} style={{background:"rgba(212,165,116,.07)",border:"1px solid rgba(212,165,116,.22)",color:"var(--hl)",padding:".3rem .68rem",borderRadius:6,fontSize:".74rem",fontWeight:600,fontFamily:"'Cairo',sans-serif",display:"flex",alignItems:"center",gap:".28rem",minHeight:36}}>🔗 شارك</button>
+              <button onClick={()=>toggleFav(selA.id)} style={{background:favorites.includes(selA.id)?"rgba(212,165,116,.15)":"rgba(255,255,255,.04)",border:`1px solid ${favorites.includes(selA.id)?"rgba(212,165,116,.4)":"var(--border)"}`,color:favorites.includes(selA.id)?"var(--hl)":"var(--dim)",padding:".3rem .68rem",borderRadius:6,fontSize:".74rem",fontWeight:600,fontFamily:"'Cairo',sans-serif",display:"flex",alignItems:"center",gap:".28rem",minHeight:36}}>{favorites.includes(selA.id)?"⭐ مفضل":"☆ أضف للمفضلة"}</button>
+            <button onClick={e=>shareAcc(selA,e)} style={{background:"rgba(212,165,116,.07)",border:"1px solid rgba(212,165,116,.22)",color:"var(--hl)",padding:".3rem .68rem",borderRadius:6,fontSize:".74rem",fontWeight:600,fontFamily:"'Cairo',sans-serif",display:"flex",alignItems:"center",gap:".28rem",minHeight:36}}>🔗 شارك</button>
               <button onClick={e=>{e.stopPropagation();setShowQR(selA);}} style={{background:"rgba(255,255,255,.04)",border:"1px solid var(--border)",color:"var(--dim)",padding:".3rem .68rem",borderRadius:6,fontSize:".74rem",fontWeight:600,fontFamily:"'Cairo',sans-serif",display:"flex",alignItems:"center",gap:".28rem",minHeight:36}}>◻️ QR</button>
             </div>
             <div style={{color:"var(--dim)",lineHeight:1.68,marginBottom:".85rem",fontSize:".85rem"}}>{selA.description}</div>
