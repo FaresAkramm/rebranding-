@@ -64,12 +64,12 @@ if('serviceWorker' in navigator){
 @keyframes dotBounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
 
 /* ── Bottom Nav (mobile only) ── */
-.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(8,8,8,0.97);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border-top:1px solid rgba(255,255,255,0.07);padding-bottom:env(safe-area-inset-bottom,0px);height:calc(64px + env(safe-area-inset-bottom,0px));}
-.bottom-nav-inner{display:flex;height:64px;align-items:stretch;}
-.bnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:none;background:transparent;color:var(--dim);font-family:'Cairo',sans-serif;font-size:.55rem;font-weight:600;transition:all .18s;position:relative;padding:0 1px;min-width:0;max-width:25%;}
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(8,8,8,0.98);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border-top:1px solid rgba(255,255,255,0.08);padding-bottom:env(safe-area-inset-bottom,0px);height:calc(62px + env(safe-area-inset-bottom,0px));}
+.bottom-nav-inner{display:flex;height:62px;align-items:stretch;}
+.bnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;color:var(--dim);font-family:'Cairo',sans-serif;font-size:.58rem;font-weight:600;transition:color .18s;position:relative;padding:0 4px;min-width:0;}
 .bnav-btn.active{color:var(--hl);}
-.bnav-btn .bnav-icon{font-size:1.2rem;line-height:1;}
-.bnav-btn span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-size:.5rem;}
+.bnav-btn .bnav-icon{font-size:1.3rem;line-height:1;}
+.bnav-btn span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:58px;}
 .bnav-badge{position:absolute;top:8px;right:calc(50% - 16px);background:#ef4444;color:#fff;font-size:.45rem;font-weight:700;padding:.1rem .28rem;border-radius:10px;min-width:14px;text-align:center;}
 @media(max-width:768px){
   .bottom-nav{display:block;}
@@ -2266,6 +2266,42 @@ function MultiReplyEditor({replies,onChange}){
 /* ══════════════════════
    MAIN APP
 ══════════════════════ */
+function UsersPanel(){
+  const[users,setUsers]=useState([]);
+  const[load,setLoad]=useState(true);
+  React.useEffect(()=>{
+    var fb=window.__fb;if(!fb)return;
+    fb.getDocs(fb.collection(fb.db,"fcm_tokens")).then(function(snap){
+      var list=snap.docs.map(function(d){return d.data();}).filter(function(u){return u.uid;});
+      // dedupe by uid
+      var seen={};
+      list=list.filter(function(u){if(seen[u.uid])return false;seen[u.uid]=true;return true;});
+      list.sort(function(a,b){return (b.updatedAt||"").localeCompare(a.updatedAt||"");});
+      setUsers(list);setLoad(false);
+    }).catch(function(){setLoad(false);});
+  },[]);
+  if(load)return <div style={{color:"var(--dim)",fontSize:".8rem",padding:"1rem"}}>جاري التحميل...</div>;
+  if(!users.length)return <div style={{textAlign:"center",padding:"2rem",color:"var(--dim)"}}><div style={{fontSize:"2rem",marginBottom:".5rem"}}>👥</div><div>مفيش يوزرز لحد دلوقتي</div></div>;
+  return(
+    <div style={{display:"grid",gap:".55rem"}}>
+      <div style={{fontSize:".7rem",color:"var(--dim)",marginBottom:".3rem"}}>{users.length} يوزر مسجل</div>
+      {users.map(function(u,i){return(
+        <div key={i} style={{background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.07)",borderRadius:8,padding:".75rem 1rem",display:"flex",alignItems:"center",gap:".8rem"}}>
+          <div style={{width:36,height:36,borderRadius:"50%",background:"rgba(212,165,116,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1rem",flexShrink:0}}>👤</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:600,fontSize:".85rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.displayName||"بدون اسم"}</div>
+            <div style={{fontSize:".7rem",color:"var(--dim)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email||"—"}</div>
+          </div>
+          <div style={{textAlign:"left",flexShrink:0}}>
+            <div style={{fontSize:".62rem",color:"var(--dim)",background:"rgba(255,255,255,.04)",padding:".15rem .45rem",borderRadius:4}}>{u.platform||"web"}</div>
+            {u.updatedAt&&<div style={{fontSize:".58rem",color:"var(--dim)",marginTop:".2rem"}}>{new Date(u.updatedAt).toLocaleDateString("ar-EG")}</div>}
+          </div>
+        </div>
+      );})}
+    </div>
+  );
+}
+
 function App(){
   const[fbOk,setFbOk]=useState(!!window.__fbReady);
   const[fbError,setFbError]=useState(null);
@@ -2802,23 +2838,23 @@ function App(){
       {/* ── Bottom Nav (mobile) ── */}
       <nav className="bottom-nav">
         <div className="bottom-nav-inner">
-          <button className={"bnav-btn"+(view==="pub"&&!showFavs?" active":"")} onClick={()=>{setView("pub");setShowFavs(false);}}>
+          <button className={"bnav-btn"+(view==="pub"&&!showFavs&&!showPublicBot?" active":"")} onClick={()=>{setView("pub");setShowFavs(false);setShowPublicBot(false);}}>
             <span className="bnav-icon">🏠</span><span>الرئيسية</span>
           </button>
-          <button className={"bnav-btn"+(showFavs?" active":"")} onClick={()=>{setView("pub");setShowFavs(!showFavs);}}>
+          <button className={"bnav-btn"+(showFavs?" active":"")} onClick={()=>{setView("pub");setShowPublicBot(false);setShowFavs(!showFavs);}}>
             <span className="bnav-icon">⭐</span><span>المفضلة</span>
             {favorites.length>0&&<span className="bnav-badge">{favorites.length}</span>}
           </button>
-          <button className={"bnav-btn"+(showPublicBot?" active":"")} onClick={()=>setShowPublicBot(!showPublicBot)}>
+          <button className={"bnav-btn"+(showPublicBot?" active":"")} onClick={()=>{setShowFavs(false);setShowPublicBot(!showPublicBot);}}>
             <span className="bnav-icon">💬</span><span>المساعد</span>
           </button>
           {admin
-            ?<button className={"bnav-btn"+(view==="admin"?" active":"")} onClick={()=>view==="admin"?[setAdmin(false),localStorage.removeItem("rb_admin_pw"),setView("pub")]:setView("admin")}>
+            ?<button className={"bnav-btn"+(view==="admin"?" active":"")} onClick={()=>{if(view==="admin"){setAdmin(false);try{localStorage.removeItem("rb_admin_pw");}catch(e){}setView("pub");}else setView("admin");}}>
                 <span className="bnav-icon">{view==="admin"?"🚪":"🛠️"}</span>
                 <span>{view==="admin"?"خروج":"الأدمن"}</span>
                 {view!=="admin"&&urgentCount>0&&<span className="bnav-badge">{urgentCount}</span>}
               </button>
-            :<button className={"bnav-btn"+(view==="login"||view==="admin_login"?" active":"")} onClick={()=>user?googleLogout():setView("login")}>
+            :<button className={"bnav-btn"+(view==="login"||view==="admin_login"?" active":"")} onClick={()=>{if(user){googleLogout();}else{setView("login");}}}>
                 <span className="bnav-icon">{user?"🚪":"🔑"}</span>
                 <span>{user?user.displayName?.split(" ")[0]||"خروج":"دخول"}</span>
               </button>
@@ -3009,10 +3045,18 @@ function App(){
             <button className={"tab-btn"+(atab==="qa"?" on":"")} onClick={()=>{setAtab("qa");setAdminSearch("");}}>
               {`❓ أسئلة (${accs.reduce(function(sum,a){return sum+(a.trainedQA||[]).filter(function(q){return q.q&&q.a;}).length;},0)})`}
             </button>
+            <button className={"tab-btn"+(atab==="users"?" on":"")} onClick={()=>{setAtab("users");setAdminSearch("");}}>👥 اليوزرز</button>
             <button className={"tab-btn"+(atab==="log"?" on":"")} onClick={()=>{setAtab("log");setAdminSearch("");}}>📋 آخر التعديلات</button>
           </div>
 
-          {atab==="accs"&&<>
+          {/* ── Logged-in Users ── */}
+      {atab==="users"&&(
+        <div>
+          <div style={{fontSize:".8rem",color:"var(--dim)",marginBottom:"1rem"}}>اليوزرز اللي دخلوا بـ Google</div>
+          <UsersPanel/>
+        </div>
+      )}
+      {atab==="accs"&&<>
             <div style={{display:"flex",gap:".6rem",marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
               <button className="bh" onClick={()=>openAF()} style={{...S.pBtn,flexShrink:0}}>+ أضف أكونت</button>
               <div className="search-wrap" style={{flex:1,minWidth:180}}>
