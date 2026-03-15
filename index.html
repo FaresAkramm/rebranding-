@@ -14,7 +14,7 @@
 <script>
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('sw.js').then(r=>).catch(e=>);
+    navigator.serviceWorker.register('sw.js').then(r=>console.log('SW ok')).catch(e=>console.log('SW:',e.message));
   });
 }
 </script>
@@ -4218,11 +4218,11 @@ window.addEventListener('load',function(){
     // If root is empty after hiding splash, force reload once
     setTimeout(function(){
       var root=document.getElementById('root');
-      if(root&&root.children.length===0&&!sessionStorage.getItem('rb_reload_done')){
+      if(root&&root.innerHTML.trim()===''&&!sessionStorage.getItem('rb_reload_done')){
         sessionStorage.setItem('rb_reload_done','1');
-        window.location.reload();
+        window.location.reload(true); // force reload from server
       }
-    },500);
+    },1000);
   },delay);
 });
 // Offline
