@@ -3642,6 +3642,13 @@ function App(){
             <span>الأدمن</span>
             {urgentCount>0&&<span className="bnav-badge">{urgentCount}</span>}
           </button>}
+          <button className={"bnav-btn"+(view==="profile"?" active":"")} onClick={()=>setView("profile")} style={{position:"relative"}}>
+            {user?.photoURL
+              ?<div style={{width:26,height:26,borderRadius:"50%",overflow:"hidden",border:"1.5px solid rgba(212,165,116,.4)",flexShrink:0}}><img src={user.photoURL} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/></div>
+              :<span className="bnav-icon">👤</span>
+            }
+            <span>{user?user.displayName?.split(" ")[0]||"أنا":"الإعدادات"}</span>
+          </button>
         </div>
       </nav>
 
