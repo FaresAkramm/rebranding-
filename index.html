@@ -875,7 +875,7 @@ function AccountProfilePage({a,offs,onBack,onZoom,allAccs,isAdmin}){
 }
 
 /* ══ ACC CARD ══ */
-function AccCard({a,onClick,onShare,onTagClick}){
+function AccCard({a,onClick,onShare,onTagClick,onFav,isFav}){
   const[hover,setHover]=useState(false);
   const hasReplies=a.fixedReply||a.timesReply||a.contactReply||(a.extraReplies&&a.extraReplies.length>0);
   const allReplies=[
@@ -900,7 +900,10 @@ function AccCard({a,onClick,onShare,onTagClick}){
             <span style={{fontWeight:700,fontSize:".93rem",fontFamily:"'Playfair Display',serif"}}>{a.name}</span>
             <Badge s={a.status}/>
           </div>
-          <button onClick={e=>onShare(a,e)} style={{flexShrink:0,background:"rgba(212,165,116,.05)",border:"1px solid rgba(212,165,116,.16)",color:"rgba(212,165,116,.55)",width:32,height:32,borderRadius:6,fontSize:".8rem",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .18s",marginBottom:4}} onMouseEnter={e=>{e.currentTarget.style.background="rgba(212,165,116,.14)";e.currentTarget.style.color="var(--hl)";}} onMouseLeave={e=>{e.currentTarget.style.background="rgba(212,165,116,.05)";e.currentTarget.style.color="rgba(212,165,116,.55)";}}>🔗</button>
+          <div style={{display:"flex",gap:".3rem",marginBottom:4,flexShrink:0}}>
+            {onFav&&<button onClick={e=>{e.stopPropagation();onFav(a.id);}} style={{background:isFav?"rgba(212,165,116,.15)":"rgba(212,165,116,.04)",border:`1px solid ${isFav?"rgba(212,165,116,.4)":"rgba(212,165,116,.14)"}`,color:isFav?"var(--hl)":"rgba(212,165,116,.4)",width:32,height:32,borderRadius:6,fontSize:".85rem",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .18s"}}>{isFav?"⭐":"☆"}</button>}
+            <button onClick={e=>onShare(a,e)} style={{background:"rgba(212,165,116,.05)",border:"1px solid rgba(212,165,116,.16)",color:"rgba(212,165,116,.55)",width:32,height:32,borderRadius:6,fontSize:".8rem",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .18s"}} onMouseEnter={e=>{e.currentTarget.style.background="rgba(212,165,116,.14)";e.currentTarget.style.color="var(--hl)";}} onMouseLeave={e=>{e.currentTarget.style.background="rgba(212,165,116,.05)";e.currentTarget.style.color="rgba(212,165,116,.55)";}}>🔗</button>
+          </div>
         </div>
         <div style={{fontSize:".78rem",color:"var(--dim)",lineHeight:1.62,marginBottom:".5rem"}}>{a.description}</div>
         <div style={{marginBottom:".38rem"}}>
@@ -2352,7 +2355,7 @@ function MultiReplyEditor({replies,onChange}){
 /* ══════════════════════
    MAIN APP
 ══════════════════════ */
-function MineTab({user,accs,onOpenProfile,onShare,onTagClick}){
+function MineTab({user,accs,onOpenProfile,onShare,onTagClick,onFav,favs}){
   const[myAccs,setMyAccs]=useState([]);
   const[loading,setLoading]=useState(true);
   const[taqseemDate,setTaqseemDate]=useState("");
@@ -2409,7 +2412,7 @@ function MineTab({user,accs,onOpenProfile,onShare,onTagClick}){
       ):(
         <div className="grid-cards" style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(280px,100%),1fr))",gap:"1rem"}}>
           {myAccs.map(function(a){return(
-            <AccCard key={a.id} a={a} onClick={()=>onOpenProfile(a)} onShare={onShare} onTagClick={onTagClick}/>
+            <AccCard key={a.id} a={a} onClick={()=>onOpenProfile(a)} onShare={onShare} onTagClick={onTagClick} onFav={onFav} isFav={favs&&favs.includes(a.id)}/>
           );})}
         </div>
       )}
@@ -2877,6 +2880,8 @@ function App(){
     // SW update detection
     if("serviceWorker" in navigator){
       navigator.serviceWorker.ready.then(function(reg){
+        // Check for update every 60s
+        setInterval(function(){reg.update();},60000);
         reg.addEventListener("updatefound",function(){
           var newSW=reg.installing;
           newSW.addEventListener("statechange",function(){
@@ -2885,6 +2890,12 @@ function App(){
             }
           });
         });
+      });
+      // Listen for SW message
+      navigator.serviceWorker.addEventListener("message",function(e){
+        if(e.data&&e.data.type==="UPDATE_AVAILABLE"){
+          setShowUpdateBanner(true);
+        }
       });
     }
   },[]);
@@ -3072,23 +3083,27 @@ function App(){
     if(window.listenToNotifications) window.listenToNotifications();
   },[fbOk]);
 
-  // اطلب notification permission بعد login مباشرة
+  // اطلب notification permission بعد login
   React.useEffect(()=>{
     if(!user)return;
     if(!("Notification" in window))return;
     if(Notification.permission==="granted"){
-      registerFCMToken();return;
+      if(window.listenToNotifications)window.listenToNotifications();
+      registerFCMToken();
+      return;
     }
     if(Notification.permission==="default"){
-      // طلب مباشر بعد ثانية من الـ login
+      // انتظر ثانيتين بعد الـ login عشان مش تطلع في وشه فوراً
       const t=setTimeout(async function(){
         try{
           const perm=await Notification.requestPermission();
           if(perm==="granted"){
-            registerFCMToken();
+            await registerFCMToken();
+            if(window.listenToNotifications)window.listenToNotifications();
+            msg("🔔 تم تفعيل الإشعارات!");
           }
         }catch(e){}
-      },1000);
+      },2000);
       return()=>clearTimeout(t);
     }
   },[user]);
@@ -3180,6 +3195,7 @@ function App(){
     try{
       var fb=window.__fb;if(!fb)return;
       await fb.signInWithPopup(fb.auth,fb.googleProvider);
+      setView("pub"); // go to main page after login
     }catch(e){msg("❌ فشل تسجيل الدخول: "+e.message);}
   }
 
@@ -3449,6 +3465,9 @@ function App(){
           <button className={"bnav-btn"+(view==="pub"&&!showFavs&&!showPublicBot?" active":"")} onClick={()=>{setView("pub");setShowFavs(false);setShowPublicBot(false);}}>
             <span className="bnav-icon">🏠</span><span>الرئيسية</span>
           </button>
+          {installPrompt&&<button className="bnav-btn" onClick={async()=>{installPrompt.prompt();var r=await installPrompt.userChoice;if(r.outcome==="accepted")setInstallPrompt(null);}}>
+            <span className="bnav-icon">📲</span><span>تنزيل</span>
+          </button>}
           <button className={"bnav-btn"+(showFavs?" active":"")} onClick={()=>{setView("pub");setShowPublicBot(false);setShowFavs(!showFavs);}}>
             <span className="bnav-icon">⭐</span><span>المفضلة</span>
             {favorites.length>0&&<span className="bnav-badge">{favorites.length}</span>}
@@ -3499,13 +3518,27 @@ function App(){
       {/* ═══════════════ ADMIN LOGIN ═══════════════ */}
       {view==="admin_login"&&(
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"80vh",padding:"1rem"}}>
-          <div style={{background:"#0f0f0f",border:"1px solid rgba(212,165,116,.15)",borderRadius:16,padding:"2rem 1.6rem",width:"100%",maxWidth:320,textAlign:"center"}}>
+          <div style={{background:"#0f0f0f",border:"1px solid rgba(212,165,116,.15)",borderRadius:16,padding:"2rem 1.6rem",width:"100%",maxWidth:340,textAlign:"center"}}>
             <div style={{fontSize:"1.8rem",marginBottom:".8rem"}}>🔐</div>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1.1rem",marginBottom:"1.4rem"}}>لوحة التحكم</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1.1rem",marginBottom:".5rem"}}>لوحة التحكم</div>
+            <div style={{fontSize:".75rem",color:"var(--dim)",marginBottom:"1.4rem",lineHeight:1.6}}>سجّل بـ Google الأول، بعدين حط كلمة المرور</div>
+            {/* Step 1: Google login if not logged in */}
+            {!user?(
+              <button onClick={async()=>{try{var fb=window.__fb;await fb.signInWithPopup(fb.auth,fb.googleProvider);}catch(e){msg("❌ "+e.message);}}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:".75rem",padding:".8rem 1rem",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.05)",color:"var(--text)",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".9rem",cursor:"pointer",marginBottom:"1rem",minHeight:50}}>
+                <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+                سجّل بـ Google
+              </button>
+            ):(
+              <div style={{display:"flex",alignItems:"center",gap:".6rem",padding:".6rem .9rem",background:"rgba(74,222,128,.06)",border:"1px solid rgba(74,222,128,.2)",borderRadius:10,marginBottom:"1rem",textAlign:"right"}}>
+                <span style={{fontSize:"1.1rem"}}>✅</span>
+                <div><div style={{fontSize:".82rem",fontWeight:600}}>{user.displayName||user.email}</div><div style={{fontSize:".65rem",color:"#4ade80"}}>مسجل بـ Google</div></div>
+              </div>
+            )}
+            {/* Step 2: Password */}
             <input type="password" placeholder="كلمة المرور" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} style={{...S.inp,textAlign:"center",fontSize:"1.1rem",letterSpacing:".15em"}} autoFocus/>
             {pwErr&&<div style={{color:"#f87171",marginBottom:".65rem",fontSize:".8rem"}}>❌ كلمة المرور غلط</div>}
-            <button onClick={login} disabled={!pw.trim()} style={{...S.pBtn,width:"100%",padding:".75rem",opacity:pw.trim()?1:.5,marginBottom:".6rem"}}>دخول 🔓</button>
-            <button onClick={()=>setView("login")} style={{background:"none",border:"none",color:"var(--dim)",fontSize:".78rem",fontFamily:"'Cairo',sans-serif",cursor:"pointer",minHeight:36,width:"100%"}}>← رجوع</button>
+            <button onClick={login} disabled={!pw.trim()||busy} style={{...S.pBtn,width:"100%",padding:".75rem",opacity:!pw.trim()||busy?.5:1,marginBottom:".6rem"}}>دخول 🔓</button>
+            <button onClick={()=>setView("landing")} style={{background:"none",border:"none",color:"var(--dim)",fontSize:".78rem",fontFamily:"'Cairo',sans-serif",cursor:"pointer",minHeight:36,width:"100%"}}>← رجوع</button>
           </div>
         </div>
       )}
@@ -3585,7 +3618,7 @@ function App(){
           </div>
 
           {ptab==="mine"&&user&&(
-            <MineTab user={user} accs={accs} onOpenProfile={openProfile} onShare={shareAcc} onTagClick={(t)=>{setSearch(t);setPtab("accs");}}/>
+            <MineTab user={user} accs={accs} onOpenProfile={openProfile} onShare={shareAcc} onTagClick={(t)=>{setSearch(t);setPtab("accs");}} onFav={toggleFav} favs={favorites}/>
           )}
           {ptab==="accs"&&<>
             <div style={{display:"flex",gap:".38rem",flexWrap:"wrap",marginBottom:"1.1rem",alignItems:"center"}}>
@@ -3594,7 +3627,7 @@ function App(){
             </div>
             {load?<SkeletonCards/>:fAccs.length===0?<div style={{textAlign:"center",color:"var(--dim)",padding:"3rem"}}>🔍 لا توجد نتائج</div>:
               <div className="grid-cards" style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(280px,100%),1fr))",gap:"1rem"}}>
-                {fAccs.map(a=><AccCard key={a.id} a={a} onClick={()=>openProfile(a)} onShare={shareAcc} onTagClick={t=>{setSearch(t);setPtab('accs');}}/>)}
+                {fAccs.map(a=><AccCard key={a.id} a={a} onClick={()=>openProfile(a)} onShare={shareAcc} onTagClick={t=>{setSearch(t);setPtab('accs');}} onFav={toggleFav} isFav={favorites.includes(a.id)}/>)}
               </div>}
           </>}
 
@@ -4001,16 +4034,17 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 <div id="ptr"><span class="ptr-spin">↻</span> جاري التحديث...</div>
 
 <script>
-// Splash — show only first time, skip on reload
+// Splash — full animation first ever open, fast after that
 window.__hideSplash=function(){
   var s=document.getElementById('splash');
   if(s)s.classList.add('hidden');
 };
 window.addEventListener('load',function(){
-  // If already visited this session, hide faster
-  var fast=sessionStorage.getItem('rb_visited');
-  sessionStorage.setItem('rb_visited','1');
-  setTimeout(window.__hideSplash, fast?800:2200);
+  var seen=localStorage.getItem('rb_splash_seen');
+  localStorage.setItem('rb_splash_seen','1');
+  // First time ever: full 2.2s animation
+  // Already seen before: 0.5s only
+  setTimeout(window.__hideSplash, seen?500:2200);
 });
 // Offline
 function updateOnline(){
