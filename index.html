@@ -1366,6 +1366,19 @@ function BotWindow({accs,offs,isAdmin,onClose,onSaveQA,onAction}){
 async function requestNotifPermission(){
   if(!("Notification" in window))return false;
   if(Notification.permission==="granted")return true;
+  if(Notification.permission==="denied"){
+    // Guide user to browser settings
+    var isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
+    var isAndroid=/Android/.test(navigator.userAgent);
+    if(isIOS){
+      alert("افتح: الإعدادات ← Safari ← الإشعارات وفعّلها");
+    } else if(isAndroid){
+      alert("افتح: إعدادات الجهاز ← التطبيقات ← المتصفح ← الإشعارات وفعّلها");
+    } else {
+      alert("افتح إعدادات المتصفح وفعّل الإشعارات لهذا الموقع");
+    }
+    return false;
+  }
   const p=await Notification.requestPermission();
   return p==="granted";
 }
@@ -2100,6 +2113,122 @@ function TrainPage({accs,onSave,onClose}){
   );
 }
 
+
+function ProfilePage({user,favorites,accs,theme,onTheme,onSignOut,onToggleFav,onViewChange}){
+  const myFavAccs=accs.filter(a=>favorites.includes(a.id));
+  const fb=window.__fb;
+  const[notifStatus,setNotifStatus]=useState(
+    !("Notification" in window)?"not-supported":Notification.permission
+  );
+
+  async function handleNotif(){
+    if(notifStatus==="granted"){
+      // open system settings hint
+      msg("⚙️ افتح إعدادات الجهاز → الإشعارات لإيقافها");
+      return;
+    }
+    try{
+      const p=await Notification.requestPermission();
+      setNotifStatus(p);
+      if(p==="granted"){
+        await registerFCMToken();
+        if(window.listenToNotifications)window.listenToNotifications();
+        msg("🔔 تم تفعيل الإشعارات!");
+      } else if(p==="denied"){
+        // Guide to settings
+        msg("⚙️ افتح إعدادات المتصفح وفعّل الإشعارات يدوياً");
+        setTimeout(()=>{
+          if(navigator.userAgent.includes("Android")){
+            window.open("intent://settings#Intent;scheme=android-settings;end","_blank");
+          }
+        },1000);
+      }
+    }catch(e){}
+  }
+
+  return(
+    <div className="page-enter" style={{maxWidth:480,margin:"0 auto",padding:"1.5rem 1.1rem",paddingBottom:"6rem"}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",gap:".8rem",marginBottom:"2rem",paddingTop:".5rem"}}>
+        <div style={{width:56,height:56,borderRadius:"50%",overflow:"hidden",border:"2px solid rgba(212,165,116,.4)",flexShrink:0}}>
+          <img src={LOGO} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
+        </div>
+        <div>
+          <div style={{fontWeight:700,fontSize:"1rem",fontFamily:"'Playfair Display',serif"}}>{user?user.displayName||user.email:"زائر"}</div>
+          {user&&<div style={{fontSize:".7rem",color:"var(--dim)"}}>{user.email}</div>}
+        </div>
+      </div>
+
+      {/* Notifications */}
+      <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,marginBottom:"1rem",overflow:"hidden"}}>
+        <div style={{padding:".9rem 1rem",fontWeight:600,fontSize:".8rem",color:"var(--dim)",letterSpacing:".06em",textTransform:"uppercase",borderBottom:"1px solid var(--border)"}}>الإشعارات</div>
+        <div style={{padding:".9rem 1rem",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div>
+            <div style={{fontWeight:600,fontSize:".88rem",marginBottom:".15rem"}}>إشعارات العروض الجديدة</div>
+            <div style={{fontSize:".7rem",color:notifStatus==="granted"?"#4ade80":notifStatus==="denied"?"#f87171":"var(--dim)"}}>
+              {notifStatus==="granted"?"✅ مفعّلة":notifStatus==="denied"?"❌ محجوبة — غيّر من الإعدادات":"⏳ غير مفعّلة"}
+            </div>
+          </div>
+          <button onClick={handleNotif} style={{padding:".4rem .9rem",borderRadius:20,border:`1px solid ${notifStatus==="granted"?"rgba(74,222,128,.3)":"rgba(212,165,116,.3)"}`,background:notifStatus==="granted"?"rgba(74,222,128,.08)":"rgba(212,165,116,.08)",color:notifStatus==="granted"?"#4ade80":"var(--hl)",fontFamily:"'Cairo',sans-serif",fontSize:".75rem",fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>
+            {notifStatus==="granted"?"مفعّلة ✓":notifStatus==="denied"?"فتح الإعدادات ⚙️":"تفعيل 🔔"}
+          </button>
+        </div>
+      </div>
+
+      {/* Theme */}
+      <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,marginBottom:"1rem",overflow:"hidden"}}>
+        <div style={{padding:".9rem 1rem",fontWeight:600,fontSize:".8rem",color:"var(--dim)",letterSpacing:".06em",textTransform:"uppercase",borderBottom:"1px solid var(--border)"}}>المظهر</div>
+        <div style={{padding:".75rem 1rem",display:"flex",gap:".6rem"}}>
+          {[{id:"dark",label:"🌙 داكن"},{id:"light",label:"☀️ فاتح"}].map(t=>(
+            <button key={t.id} onClick={()=>onTheme(t.id)} style={{flex:1,padding:".6rem",borderRadius:10,border:`1px solid ${theme===t.id?"var(--hl)":"var(--border)"}`,background:theme===t.id?"rgba(212,165,116,.1)":"transparent",color:theme===t.id?"var(--hl)":"var(--dim)",fontFamily:"'Cairo',sans-serif",fontWeight:600,fontSize:".85rem",cursor:"pointer",transition:"all .18s"}}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Favorites */}
+      <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,marginBottom:"1rem",overflow:"hidden"}}>
+        <div style={{padding:".9rem 1rem",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:myFavAccs.length>0?"1px solid var(--border)":"none"}}>
+          <div style={{fontWeight:600,fontSize:".8rem",color:"var(--dim)",letterSpacing:".06em",textTransform:"uppercase"}}>المفضلة</div>
+          <span style={{fontSize:".7rem",color:"var(--hl)",background:"rgba(212,165,116,.08)",padding:".15rem .5rem",borderRadius:10,border:"1px solid rgba(212,165,116,.2)"}}>{myFavAccs.length} أكونت</span>
+        </div>
+        {myFavAccs.length===0?(
+          <div style={{padding:"1.5rem",textAlign:"center",color:"var(--dim)",fontSize:".8rem"}}>
+            <div style={{fontSize:"1.8rem",marginBottom:".4rem"}}>⭐</div>
+            اضغط ⭐ على أي أكونت تضيفه
+          </div>
+        ):(
+          <div style={{padding:".6rem .8rem",display:"flex",flexDirection:"column",gap:".4rem"}}>
+            {myFavAccs.map(a=>(
+              <div key={a.id} style={{display:"flex",alignItems:"center",gap:".75rem",padding:".5rem .4rem",borderRadius:8}}>
+                {a.avatar?<img src={a.avatar} style={{width:36,height:36,borderRadius:"50%",objectFit:"cover",flexShrink:0,border:"1px solid rgba(212,165,116,.2)"}} alt=""/>:<div style={{width:36,height:36,borderRadius:"50%",background:"rgba(212,165,116,.08)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:".9rem"}}>🏪</div>}
+                <div style={{flex:1,fontWeight:600,fontSize:".85rem"}}>{a.name}</div>
+                <button onClick={()=>onToggleFav(a.id)} style={{background:"none",border:"none",color:"var(--hl)",fontSize:"1rem",cursor:"pointer",padding:".25rem"}}>⭐</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* تقسيمتي */}
+      {user&&<button onClick={()=>onViewChange("mine")} style={{width:"100%",padding:".85rem 1rem",borderRadius:12,border:"1px solid var(--border)",background:"var(--card)",color:"var(--text)",fontFamily:"'Cairo',sans-serif",fontWeight:600,fontSize:".88rem",cursor:"pointer",marginBottom:"1rem",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <span>⭐ تقسيمتي</span><span style={{color:"var(--dim)"}}>←</span>
+      </button>}
+
+      {/* Sign out / Sign in */}
+      {user?(
+        <button onClick={onSignOut} style={{width:"100%",padding:".85rem",borderRadius:12,border:"1px solid rgba(239,68,68,.22)",background:"rgba(239,68,68,.06)",color:"#f87171",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".88rem",cursor:"pointer"}}>
+          تسجيل الخروج 🚪
+        </button>
+      ):(
+        <button onClick={()=>onViewChange("login")} style={{width:"100%",padding:".85rem",borderRadius:12,border:"1px solid rgba(212,165,116,.25)",background:"rgba(212,165,116,.06)",color:"var(--hl)",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".88rem",cursor:"pointer"}}>
+          تسجيل الدخول 🔑
+        </button>
+      )}
+    </div>
+  );
+}
 
 function ModeSelect({accs,offs,onGuest,onMember,onAdmin}){
   const activeOffs=offs.filter(o=>!isExp(o.expiryDate)).length;
@@ -3070,6 +3199,28 @@ function App(){
   /* ── FCM Init ── */
   const[showNotifPrompt,setShowNotifPrompt]=useState(false);
   const[showWAPrompt,setShowWAPrompt]=useState(false);
+  const[theme,setTheme]=useState(()=>{try{return localStorage.getItem("rb_theme")||"dark";}catch(e){return "dark";}});
+
+  // Apply theme
+  React.useEffect(()=>{
+    document.documentElement.setAttribute("data-theme",theme);
+    try{localStorage.setItem("rb_theme",theme);}catch(e){}
+    if(theme==="light"){
+      document.documentElement.style.setProperty("--primary","#f5f5f0");
+      document.documentElement.style.setProperty("--text","#1a1a1a");
+      document.documentElement.style.setProperty("--dim","#666");
+      document.documentElement.style.setProperty("--card","rgba(0,0,0,0.04)");
+      document.documentElement.style.setProperty("--border","rgba(0,0,0,0.1)");
+      document.body.style.background="#f5f5f0";
+    } else {
+      document.documentElement.style.setProperty("--primary","#0a0a0a");
+      document.documentElement.style.setProperty("--text","#e8e8e8");
+      document.documentElement.style.setProperty("--dim","#a8a8a8");
+      document.documentElement.style.setProperty("--card","rgba(255,255,255,0.03)");
+      document.documentElement.style.setProperty("--border","rgba(255,255,255,0.08)");
+      document.body.style.background="#0a0a0a";
+    }
+  },[theme]);
   const[installPrompt,setInstallPrompt]=useState(null);
   const[showUpdateBanner,setShowUpdateBanner]=useState(false);
   const[waInput,setWaInput]=useState("");
@@ -3136,7 +3287,7 @@ function App(){
       setUser(u);
       window.__currentUser=u||null;
       if(u){
-        // Welcome toast - only on fresh login not on page reload
+        // Welcome toast + redirect - only on fresh login
         if(!wasLoggedIn){
           var firstName=(u.displayName||"").split(" ")[0]||"";
           var hour=new Date().getHours();
@@ -3144,6 +3295,8 @@ function App(){
           setTimeout(function(){
             msg(greeting+(firstName?" يا "+firstName:"")+" 👋");
           },600);
+          // Redirect to pub if on login page
+          setView(function(prev){return prev==="login"||prev==="landing"?"pub":prev;});
         }
         // FCM token
         if(Notification.permission==="granted")registerFCMToken();
@@ -3468,9 +3621,9 @@ function App(){
           {installPrompt&&<button className="bnav-btn" onClick={async()=>{installPrompt.prompt();var r=await installPrompt.userChoice;if(r.outcome==="accepted")setInstallPrompt(null);}}>
             <span className="bnav-icon">📲</span><span>تنزيل</span>
           </button>}
-          <button className={"bnav-btn"+(showFavs?" active":"")} onClick={()=>{setView("pub");setShowPublicBot(false);setShowFavs(!showFavs);}}>
-            <span className="bnav-icon">⭐</span><span>المفضلة</span>
-            {favorites.length>0&&<span className="bnav-badge">{favorites.length}</span>}
+          <button className={"bnav-btn"+(view==="profile"?" active":"")} onClick={()=>setView("profile")}>
+            <span className="bnav-icon">{user?"👤":"⚙️"}</span>
+            <span>{user?user.displayName?.split(" ")[0]||"أنا":"الإعدادات"}</span>
           </button>
           <button className={"bnav-btn"+(showPublicBot?" active":"")} onClick={()=>{setShowFavs(false);setShowPublicBot(!showPublicBot);}}>
             <span className="bnav-icon">🤖</span><span>البوت</span>
@@ -3541,6 +3694,23 @@ function App(){
             <button onClick={()=>setView("landing")} style={{background:"none",border:"none",color:"var(--dim)",fontSize:".78rem",fontFamily:"'Cairo',sans-serif",cursor:"pointer",minHeight:36,width:"100%"}}>← رجوع</button>
           </div>
         </div>
+      )}
+
+      {/* ═══════════════ PROFILE ═══════════════ */}
+      {view==="profile"&&(
+        <ProfilePage
+          user={user}
+          favorites={favorites}
+          accs={accs}
+          theme={theme}
+          onTheme={setTheme}
+          onSignOut={async()=>{await googleLogout();setView("pub");}}
+          onToggleFav={toggleFav}
+          onViewChange={(v)=>{
+            if(v==="mine"){setView("pub");setPtab("mine");}
+            else setView(v);
+          }}
+        />
       )}
 
       {/* ═══════════════ FAVORITES ═══════════════ */}
@@ -3655,7 +3825,7 @@ function App(){
 
       {/* ═══════════════ ADMIN ═══════════════ */}
       {view==="admin"&&admin&&(
-        <div className="page-enter" style={{maxWidth:1000,margin:"0 auto",padding:"1.6rem 1.1rem"}}>
+        <div className="page-enter" style={{maxWidth:1000,margin:"0 auto",padding:"1.6rem 1.1rem",minHeight:"60vh"}}>
 
           {/* Notification permission banner */}
           {"Notification" in window && Notification.permission === "default" && (
@@ -3691,7 +3861,7 @@ function App(){
             </div>
           </div>
 
-          <div className="tab-bar">
+          <div className="tab-bar" key="admin-tabs">
             <button className={"tab-btn"+(atab==="accs"?" on":"")} onClick={()=>{setAtab("accs");setAdminSearch("");}}>{`📁 الأكونتات (${accs.length})`}</button>
             <button className={"tab-btn"+(atab==="offs"?" on":"")} onClick={()=>{setAtab("offs");setAdminSearch("");}}>{`🎁 العروض (${offs.filter(o=>!isExp(o.expiryDate)).length} نشط / ${expiredOffs.length} منتهي)${urgentCount>0?" ⚠️":""}`}</button>
             <button className={"tab-btn"+(atab==="qa"?" on":"")} onClick={()=>{setAtab("qa");setAdminSearch("");}}>
