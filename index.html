@@ -542,7 +542,7 @@ function ImgUp({label,cur,onDone}){
     const reader=new FileReader();reader.onload=ev=>setPrev(ev.target.result);reader.readAsDataURL(f);
     setBusy(true);setPct(30);
     try{const url=await uploadToCloudinary(f);setPct(100);setPrev(url);onDone(url);}
-    catch(err){alert("فشل الرفع: "+err.message);}
+    catch(err){msg("❌ فشل الرفع: "+err.message);}
     setBusy(false);setPct(0);
   }
   return(
@@ -1383,7 +1383,7 @@ async function requestNotifPermission(){
   return p==="granted";
 }
 
-function showLocalNotif(title,body,icon){
+window.showLocalNotif=function showLocalNotif(title,body,icon){
   if(!("Notification" in window)||Notification.permission!=="granted")return;
   try{
     if(navigator.serviceWorker&&navigator.serviceWorker.controller){
@@ -1420,7 +1420,7 @@ async function registerFCMToken(){
     // استمع للـ messages وهو مفتوح
     fb.onMessage(fb.messaging,function(payload){
       const {title,body}=payload.notification||{};
-      if(title)showLocalNotif(title,body||"");
+      if(title)window.showLocalNotif(title,body||"");
     });
     return token;
   }catch(e){}
@@ -1455,7 +1455,7 @@ window.listenToNotifications=async function(){
           try{favs=JSON.parse(localStorage.getItem("rb_favs")||"[]");}catch(e){}
           var shouldShow=!n.accId||favs.length===0||favs.includes(n.accId);
           if(shouldShow){
-            showLocalNotif(n.title,n.body||"");
+            window.showLocalNotif(n.title,n.body||"");
           }
           localStorage.setItem("rb_last_notif",n.createdAt);
         });
@@ -1472,7 +1472,7 @@ async function saveUnansweredToFB(q,accName,accId){
         q:q,accName:accName||"عام",accId:accId||"",a:"",createdAt:new Date().toISOString()
       });
       // Notify Admin - Local notification
-      showLocalNotif("❓ سؤال جديد!","من: "+(accName||"عام")+" — "+q.slice(0,60));
+      window.showLocalNotif("❓ سؤال جديد!","من: "+(accName||"عام")+" — "+q.slice(0,60));
       // Notify Telegram with accId embedded
       var text="❓ سؤال جديد بدون إجابة\n\nالأكونت: "+(accName||"عام")+"\nالسؤال: "+q+"\n\nارد على الرسالة دي مباشرة وهيتحفظ تلقائي ✅\n[ID:"+id+"][AID:"+(accId||"")+"]";
       fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{
@@ -1687,7 +1687,7 @@ async function saveUnansweredToFB(q,accName,accId){
         badge:data.badge||"جديد",updatedAt:new Date().toISOString()
       });
       setMsgs(function(p){return [...p,{r:"ai",t:"✅ تم إضافة العرض: "+data.title+" لـ "+acc.name}];});
-      showLocalNotif("🎁 عرض جديد!","تم إضافة: "+data.title+" لـ "+acc.name);
+      window.showLocalNotif("🎁 عرض جديد!","تم إضافة: "+data.title+" لـ "+acc.name);
       logActivity("add_offer","إضافة عرض: "+data.title,"الأكونت: "+acc.name);
       setWizard(null);
     }
@@ -2722,7 +2722,7 @@ function TaqseemPanel({accs}){
         updatedAt:new Date().toISOString()
       });
       setSaved(true);
-    }catch(e){alert("خطأ: "+e.message);}
+    }catch(e){msg("❌ "+e.message);}
     setSaving(false);
   }
 
@@ -3136,8 +3136,12 @@ function App(){
     try{
       await fb.setDoc(fb.doc(fb.db,"accounts",id),{...af,tags:af.tags.split(",").map(t=>t.trim()).filter(Boolean),links:lnks.filter(l=>l.label&&l.url),updatedAt:new Date().toISOString()});
       msg("✅ تم الحفظ");setShowAF(false);
-      if(isNew){showLocalNotif("👤 أكونت جديد!","تم إضافة: "+af.name);logActivity("add_account","إضافة أكونت: "+af.name,"من السايت");sendPushToAll("👤 أكونت جديد — "+af.name,"انضم لـ Rebranding Data Mod ✨",id);}
-      else{showLocalNotif("✏️ تم التعديل","تم تعديل أكونت: "+af.name);logActivity("edit_account","تعديل أكونت: "+af.name,"من السايت");}
+      if(isNew){window.showLocalNotif("👤 أكونت جديد!","تم إضافة: "+af.name);logActivity("add_account","إضافة أكونت: "+af.name,"من السايت");sendPushToAll("👤 أكونت جديد — "+af.name,"انضم لـ Rebranding Data Mod ✨",id);}
+      else{
+        window.showLocalNotif("✏️ تم التعديل","تم تعديل أكونت: "+af.name);
+        logActivity("edit_account","تعديل أكونت: "+af.name,"من السايت");
+        sendPushToAll("✏️ تم تعديل أكونت — "+af.name,"تم تحديث البيانات",id);
+      }
     }
     catch(e){msg("❌ "+e.message);}setBusy(false);
   }
@@ -3173,8 +3177,12 @@ function App(){
     try{
       await fb.setDoc(fb.doc(fb.db,"offers",id),{...of,updatedAt:new Date().toISOString()});
       msg("✅ تم الحفظ");setShowOF(false);
-      if(isNew){showLocalNotif("🎁 عرض جديد!","تم إضافة: "+of.title+(accName?" لـ "+accName:""));logActivity("add_offer","إضافة عرض: "+of.title,"الأكونت: "+accName);sendPushToAll("🎁 عرض جديد — "+(accName||"Rebranding"),of.title+(of.expiryDate?" · ينتهي "+of.expiryDate:""),of.accountId);}
-      else{showLocalNotif("✏️ تم التعديل","تم تعديل عرض: "+of.title);logActivity("edit_offer","تعديل عرض: "+of.title,"من السايت");sendPushToAll("✏️ تم تحديث عرض — "+(accs.find(a=>a.id===of.accountId)?.name||"Rebranding"),of.title);}
+      if(isNew){window.showLocalNotif("🎁 عرض جديد!","تم إضافة: "+of.title+(accName?" لـ "+accName:""));logActivity("add_offer","إضافة عرض: "+of.title,"الأكونت: "+accName);sendPushToAll("🎁 عرض جديد — "+(accName||"Rebranding"),of.title+(of.expiryDate?" · ينتهي "+of.expiryDate:""),of.accountId);}
+      else{
+        window.showLocalNotif("✏️ تم التعديل","تم تعديل عرض: "+of.title);
+        logActivity("edit_offer","تعديل عرض: "+of.title,"من السايت");
+        sendPushToAll("✏️ تم تحديث عرض — "+(accs.find(a=>a.id===of.accountId)?.name||"Rebranding"),of.title,of.accountId);
+      }
     }
     catch(e){msg("❌ "+e.message);}setBusy(false);
   }
@@ -3605,10 +3613,11 @@ function App(){
         <div style={{display:"flex",gap:".3rem",alignItems:"center"}}>
           {urgentCount>0&&<span style={{background:"rgba(251,191,36,.1)",border:"1px solid rgba(251,191,36,.28)",color:"#fbbf24",fontSize:".58rem",fontWeight:700,padding:".08rem .42rem",borderRadius:4}}>⚠️ {urgentCount}</span>}
           {installPrompt&&<button className="bh" onClick={async()=>{installPrompt.prompt();var r=await installPrompt.userChoice;if(r.outcome==="accepted")setInstallPrompt(null);}} style={{...NB(false),fontSize:".68rem"}}>📲</button>}
-          <button className="bh" onClick={()=>setView("landing")} style={NB(false)}>🏠</button>
           <button className="bh" onClick={()=>setView("pub")} style={NB(view==="pub")}>🌐</button>
-          {admin?<button className="bh" onClick={()=>setView("admin")} style={NB(view==="admin")}>🛠️</button>:<button className="bh" onClick={()=>setView("login")} style={NB(false)}>🔐</button>}
-          {admin&&<button className="bh" onClick={()=>{setAdmin(false);try{localStorage.removeItem("rb_admin_pw");}catch(e){}setView("pub");msg("👋 تم الخروج");}} style={{...NB(false),color:"#f87171",fontSize:".7rem"}} title="خروج">🚪</button>}
+          {admin&&<button className="bh" onClick={()=>setView("admin")} style={NB(view==="admin")}>🛠️</button>}
+          <button className="bh" onClick={()=>setView("profile")} style={{...NB(view==="profile"),display:"flex",alignItems:"center",justifyContent:"center",width:34,height:34,borderRadius:"50%",padding:0,overflow:"hidden",border:user?"1.5px solid rgba(212,165,116,.4)":"none"}}>
+            {user?.photoURL?<img src={user.photoURL} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>:<span style={{fontSize:".85rem"}}>👤</span>}
+          </button>
         </div>
       </nav>
 
@@ -3621,27 +3630,18 @@ function App(){
           {installPrompt&&<button className="bnav-btn" onClick={async()=>{installPrompt.prompt();var r=await installPrompt.userChoice;if(r.outcome==="accepted")setInstallPrompt(null);}}>
             <span className="bnav-icon">📲</span><span>تنزيل</span>
           </button>}
-          <button className={"bnav-btn"+(view==="profile"?" active":"")} onClick={()=>setView("profile")}>
-            <span className="bnav-icon">{user?"👤":"⚙️"}</span>
-            <span>{user?user.displayName?.split(" ")[0]||"أنا":"الإعدادات"}</span>
-          </button>
+
           <button className={"bnav-btn"+(showPublicBot?" active":"")} onClick={()=>{setShowFavs(false);setShowPublicBot(!showPublicBot);}}>
             <span className="bnav-icon">🤖</span><span>البوت</span>
           </button>
           <button className={"bnav-btn"+(showExplain?" active":"")} onClick={()=>setShowExplain(!showExplain)}>
             <span className="bnav-icon">💡</span><span>مساعدة</span>
           </button>
-          {admin
-            ?<button className={"bnav-btn"+(view==="admin"?" active":"")} onClick={()=>{if(view==="admin"){setAdmin(false);try{localStorage.removeItem("rb_admin_pw");}catch(e){}setView("pub");}else setView("admin");}}>
-                <span className="bnav-icon">{view==="admin"?"🚪":"🛠️"}</span>
-                <span>{view==="admin"?"خروج":"الأدمن"}</span>
-                {view!=="admin"&&urgentCount>0&&<span className="bnav-badge">{urgentCount}</span>}
-              </button>
-            :<button className={"bnav-btn"+(view==="login"||view==="admin_login"?" active":"")} onClick={()=>{if(user){googleLogout();}else{setView("login");}}}>
-                <span className="bnav-icon">{user?"🚪":"🔑"}</span>
-                <span>{user?user.displayName?.split(" ")[0]||"خروج":"دخول"}</span>
-              </button>
-          }
+          {admin&&<button className={"bnav-btn"+(view==="admin"?" active":"")} onClick={()=>setView("admin")}>
+            <span className="bnav-icon">🛠️</span>
+            <span>الأدمن</span>
+            {urgentCount>0&&<span className="bnav-badge">{urgentCount}</span>}
+          </button>}
         </div>
       </nav>
 
@@ -4212,9 +4212,18 @@ window.__hideSplash=function(){
 window.addEventListener('load',function(){
   var seen=localStorage.getItem('rb_splash_seen');
   localStorage.setItem('rb_splash_seen','1');
-  // First time ever: full 2.2s animation
-  // Already seen before: 0.5s only
-  setTimeout(window.__hideSplash, seen?500:2200);
+  var delay=seen?600:2200;
+  setTimeout(function(){
+    window.__hideSplash();
+    // If root is empty after hiding splash, force reload once
+    setTimeout(function(){
+      var root=document.getElementById('root');
+      if(root&&root.children.length===0&&!sessionStorage.getItem('rb_reload_done')){
+        sessionStorage.setItem('rb_reload_done','1');
+        window.location.reload();
+      }
+    },500);
+  },delay);
 });
 // Offline
 function updateOnline(){
