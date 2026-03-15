@@ -3066,7 +3066,12 @@ function App(){
   useEffect(()=>{
     if(window.__fbReady){setFbOk(true);return;}
     window.addEventListener("fbReady",()=>setFbOk(true),{once:true});
-    setTimeout(()=>{if(!window.__fbReady)setFbError("تعذّر الاتصال بقاعدة البيانات. تأكد من الاتصال بالإنترنت وأعد المحاولة.");},10000);
+    // Force proceed after 3s even if event missed (SW cache issue)
+    var t=setTimeout(()=>{
+      if(window.__fb){setFbOk(true);}
+      else{setFbError("تعذّر الاتصال. تأكد من الاتصال بالإنترنت وأعد المحاولة.");}
+    },3000);
+    return()=>clearTimeout(t);
   },[]);
 
   /* ── Data listeners ── */
@@ -3327,6 +3332,8 @@ function App(){
       var wasLoggedIn=!!window.__currentUser;
       setUser(u);
       window.__currentUser=u||null;
+      // Always ensure fbOk is true when auth fires (Firebase is connected)
+      setFbOk(true);
       if(u){
         // Welcome toast + redirect - only on fresh login
         if(!wasLoggedIn){
@@ -3336,7 +3343,7 @@ function App(){
           setTimeout(function(){
             msg(greeting+(firstName?" يا "+firstName:"")+" 👋");
           },600);
-          // Redirect to pub if on login page
+          // Redirect to pub if on login/landing page
           setView(function(prev){return prev==="login"||prev==="landing"?"pub":prev;});
         }
         // FCM token
@@ -3398,7 +3405,12 @@ function App(){
       var fb=window.__fb;if(!fb)return;
       await fb.signOut(fb.auth);
       setUser(null);
-    }catch(e){}
+      window.__currentUser=null;
+      setAdmin(false);
+      try{localStorage.removeItem("rb_admin_pw");}catch(e){}
+      setView("landing");
+      msg("👋 تم تسجيل الخروج");
+    }catch(e){msg("❌ "+e.message);}
   }
 
   /* ── Auto-login ── */
@@ -4255,14 +4267,13 @@ window.addEventListener('load',function(){
   var delay=seen?600:2200;
   setTimeout(function(){
     window.__hideSplash();
-    // If root is empty after hiding splash, force reload once
+    // If root is empty after hiding splash, show error message
     setTimeout(function(){
       var root=document.getElementById('root');
-      if(root&&root.innerHTML.trim()===''&&!sessionStorage.getItem('rb_reload_done')){
-        sessionStorage.setItem('rb_reload_done','1');
-        window.location.reload(true); // force reload from server
+      if(root&&root.innerHTML.trim()===''){
+        root.innerHTML='<div style="color:#d4a574;text-align:center;padding:3rem;font-family:Cairo,sans-serif"><div style="font-size:2rem;margin-bottom:1rem">⚠️</div><div>حدث خطأ في التحميل</div><button onclick="location.reload()" style="margin-top:1rem;padding:.5rem 1.5rem;background:#d4a574;color:#000;border:none;border-radius:8px;font-family:Cairo,sans-serif;font-size:1rem;cursor:pointer">إعادة المحاولة</button></div>';
       }
-    },1000);
+    },3000);
   },delay);
 });
 // Offline
