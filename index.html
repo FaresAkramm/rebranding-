@@ -1407,11 +1407,11 @@ async function registerFCMToken(){
   }catch(e){console.log("FCM error:",e.message);}
 }
 
-async function sendPushToAll(title,body){
+async function sendPushToAll(title,body,accId){
   try{
     var fb=window.__fb;if(!fb)return;
     const id="notif_"+Date.now();
-    await fb.setDoc(fb.doc(fb.db,"notifications",id),{id,title,body,createdAt:new Date().toISOString(),read:false});
+    await fb.setDoc(fb.doc(fb.db,"notifications",id),{id,title,body,accId:accId||null,createdAt:new Date().toISOString(),read:false});
     var tgMsg="\uD83D\uDD14 "+title+"\n"+body+"\n\n\uD83D\uDCF1 Rebranding Data Mod";
     fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:TG_ADMIN_ID,text:tgMsg})}).catch(function(){});
     fb.getDocs(fb.collection(fb.db,"telegram_subscribers")).then(function(snap){
@@ -1426,14 +1426,19 @@ window.listenToNotifications=async function(){
     var fb=window.__fb;if(!fb)return;
     var lastCheck=localStorage.getItem("rb_last_notif")||new Date(Date.now()-60000).toISOString();
     fb.onSnapshot(
-      fb.query(fb.collection(fb.db,"notifications"),fb.orderBy("createdAt","desc"),fb.limit(1)),
+      fb.query(fb.collection(fb.db,"notifications"),fb.orderBy("createdAt","desc"),fb.limit(5)),
       function(snap){
         snap.docs.forEach(function(d){
           var n=d.data();
-          if(n.createdAt>lastCheck){
+          if(n.createdAt<=lastCheck)return;
+          // check if user follows this account (or it's a general notification)
+          var favs=[];
+          try{favs=JSON.parse(localStorage.getItem("rb_favs")||"[]");}catch(e){}
+          var shouldShow=!n.accId||favs.length===0||favs.includes(n.accId);
+          if(shouldShow){
             showLocalNotif(n.title,n.body||"");
-            localStorage.setItem("rb_last_notif",n.createdAt);
           }
+          localStorage.setItem("rb_last_notif",n.createdAt);
         });
       }
     );
@@ -2266,16 +2271,406 @@ function MultiReplyEditor({replies,onChange}){
 /* ══════════════════════
    MAIN APP
 ══════════════════════ */
+function MineTab({user,accs,onOpenProfile,onShare,onTagClick}){
+  const[myAccs,setMyAccs]=useState([]);
+  const[loading,setLoading]=useState(true);
+  const[taqseemDate,setTaqseemDate]=useState("");
+  const fb=window.__fb;
+
+  React.useEffect(function(){
+    if(!fb||!user)return;
+    var today=new Date().toISOString().slice(0,10);
+    // Try today's taqseem first
+    fb.getDoc(fb.doc(fb.db,"taqseem",today)).then(function(d){
+      if(d.exists()&&d.data().parsed){
+        var parsed=d.data().parsed;
+        var uName=(user.displayName||user.email||"").toLowerCase();
+        var myEntry=parsed.find(function(p){
+          return p.person&&uName.includes(p.person.toLowerCase());
+        });
+        if(myEntry&&myEntry.accIds&&myEntry.accIds.length>0){
+          var mine=accs.filter(function(a){return myEntry.accIds.includes(a.id);});
+          setMyAccs(mine);
+          setTaqseemDate(d.data().date||today);
+          setLoading(false);
+          return;
+        }
+      }
+      // Fallback: assignedTo field
+      var uName=(user.displayName||user.email||"").toLowerCase();
+      var mine=accs.filter(function(a){
+        return a.assignedTo&&uName.includes(a.assignedTo.toLowerCase());
+      });
+      setMyAccs(mine);
+      setLoading(false);
+    }).catch(function(){
+      setLoading(false);
+    });
+  },[user,accs]);
+
+  if(loading)return <div style={{padding:"2rem",textAlign:"center",color:"var(--dim)"}}>جاري التحميل...</div>;
+
+  return(
+    <div className="page-enter">
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.2rem",flexWrap:"wrap",gap:".5rem"}}>
+        <div>
+          <div style={{fontSize:".9rem",fontWeight:700}}>أكونتاتك يا {user.displayName?.split(" ")[0]||"صديقي"} 👋</div>
+          {taqseemDate&&<div style={{fontSize:".68rem",color:"var(--hl)",marginTop:".15rem"}}>تقسيمة {taqseemDate}</div>}
+        </div>
+        <span style={{fontSize:".68rem",color:"var(--dim)",background:"rgba(255,255,255,.04)",padding:".2rem .6rem",borderRadius:20,border:"1px solid var(--border)"}}>{myAccs.length} أكونت</span>
+      </div>
+      {myAccs.length===0?(
+        <div style={{textAlign:"center",padding:"3rem",color:"var(--dim)"}}>
+          <div style={{fontSize:"2.5rem",marginBottom:".8rem"}}>📭</div>
+          <div style={{fontSize:".9rem",marginBottom:".4rem"}}>مفيش تقسيمة لحد دلوقتي</div>
+          <div style={{fontSize:".75rem"}}>الأدمن لسه محددش التقسيمة النهارده</div>
+        </div>
+      ):(
+        <div className="grid-cards" style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:"1rem"}}>
+          {myAccs.map(function(a){return(
+            <AccCard key={a.id} a={a} onClick={()=>onOpenProfile(a)} onShare={onShare} onTagClick={onTagClick}/>
+          );})}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TextTaqseem({accs,users,onApply}){
+  const[text,setText]=useState("");
+  const[preview,setPreview]=useState([]);
+  const[err,setErr]=useState([]);
+
+  function parse(txt){
+    if(!txt.trim()){setPreview([]);setErr([]);return;}
+    var lines=txt.split("\n").filter(function(l){return l.trim();});
+    var result=[];
+    var errors=[];
+    lines.forEach(function(line){
+      // match: اسم (أكونت1 - أكونت2) or اسم (أكونت1، أكونت2)
+      var m=line.match(/^([^(（]+)[（(]([^)）]+)[)）]/);
+      if(!m){if(line.trim())errors.push("سطر مش متعرف: "+line.trim());return;}
+      var personName=m[1].trim();
+      var accNames=m[2].split(/[-–,،]+/).map(function(n){return n.trim();}).filter(Boolean);
+      // match person to user
+      var matchedUser=users.find(function(u){
+        var nick=(u.nickname||u.displayName||"").toLowerCase();
+        return nick&&(nick.includes(personName.toLowerCase())||personName.toLowerCase().includes(nick));
+      });
+      var matchedAccs=accNames.map(function(n){
+        var found=accs.find(function(a){
+          return a.name&&(a.name.toLowerCase().includes(n.toLowerCase())||n.toLowerCase().includes(a.name.toLowerCase().slice(0,4)));
+        });
+        return {input:n,acc:found||null};
+      });
+      var notFound=matchedAccs.filter(function(x){return !x.acc;});
+      if(notFound.length>0)errors.push("مش لاقي: "+notFound.map(function(x){return x.input;}).join(", ")+" ("+personName+")");
+      result.push({personName,user:matchedUser||null,accs:matchedAccs});
+    });
+    setPreview(result);
+    setErr(errors);
+  }
+
+  function apply(){
+    var newAssign={};
+    preview.forEach(function(p){
+      if(!p.user)return;
+      newAssign[p.user.uid]=(p.accs||[]).filter(function(x){return x.acc;}).map(function(x){return x.acc.id;});
+    });
+    onApply(newAssign);
+  }
+
+  return(
+    <div>
+      <div style={{fontSize:".72rem",color:"var(--dim)",marginBottom:".5rem",lineHeight:1.8}}>
+        اكتب التقسيمة — كل سطر: <span style={{color:"var(--hl)",fontFamily:"monospace"}}>اسم اليوزر (أكونت1 - أكونت2 - أكونت3)</span>
+      </div>
+      <textarea
+        value={text}
+        onChange={function(e){setText(e.target.value);parse(e.target.value);}}
+        placeholder={"فارس (بكري - تشيليز - ابن مصر - المرسي - dr fish - فرغلي)\nنسمة (ميني طنط - أوسطا - الطيب - صابر - وليمة - الياسمين)\nمنه (سلطعون - العمدة - السلطان - ابن مصر - سرحان - شبراوي)\nسلوى (بيت المشويات - شيخ البلد - الأصدقاء - فود - طنط)"}
+        style={{width:"100%",minHeight:150,padding:".8rem 1rem",borderRadius:10,border:"1px solid rgba(255,255,255,.1)",background:"rgba(255,255,255,.03)",color:"var(--text)",fontFamily:"'Cairo',sans-serif",fontSize:".85rem",direction:"rtl",resize:"vertical",lineHeight:1.9,marginBottom:".8rem"}}
+      />
+
+      {/* Errors */}
+      {err.length>0&&(
+        <div style={{marginBottom:".7rem",padding:".6rem .9rem",background:"rgba(239,68,68,.06)",border:"1px solid rgba(239,68,68,.2)",borderRadius:8}}>
+          {err.map(function(e,i){return <div key={i} style={{fontSize:".72rem",color:"#f87171"}}>⚠️ {e}</div>;})}
+        </div>
+      )}
+
+      {/* Preview */}
+      {preview.length>0&&(
+        <div style={{marginBottom:".8rem",display:"grid",gap:".4rem"}}>
+          {preview.map(function(p,i){return(
+            <div key={i} style={{background:"rgba(255,255,255,.025)",border:"1px solid rgba(255,255,255,.07)",borderRadius:8,padding:".6rem .9rem"}}>
+              <div style={{display:"flex",alignItems:"center",gap:".5rem",marginBottom:".35rem"}}>
+                <span style={{fontWeight:700,fontSize:".85rem",color:p.user?"var(--text)":"#f87171"}}>{p.personName}</span>
+                {p.user?<span style={{fontSize:".62rem",color:"#4ade80",background:"rgba(74,222,128,.08)",padding:".1rem .4rem",borderRadius:10}}>✓ {p.user.nickname||p.user.displayName}</span>
+                :<span style={{fontSize:".62rem",color:"#f87171",background:"rgba(239,68,68,.08)",padding:".1rem .4rem",borderRadius:10}}>❌ مش لاقي اليوزر</span>}
+                <span style={{fontSize:".62rem",color:"var(--dim)",marginRight:"auto"}}>{p.accs.filter(function(x){return x.acc;}).length} أكونت</span>
+              </div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:".28rem"}}>
+                {p.accs.map(function(item,j){return(
+                  <span key={j} style={{fontSize:".7rem",padding:".15rem .5rem",borderRadius:20,border:"1px solid",borderColor:item.acc?"rgba(212,165,116,.3)":"rgba(239,68,68,.3)",background:item.acc?"rgba(212,165,116,.07)":"rgba(239,68,68,.06)",color:item.acc?"var(--hl)":"#f87171"}}>
+                    {item.acc?item.acc.name:item.input+" ❌"}
+                  </span>
+                );})}
+              </div>
+            </div>
+          );})}
+        </div>
+      )}
+
+      {preview.length>0&&preview.some(function(p){return p.user;})&&(
+        <button onClick={apply} style={{width:"100%",padding:".7rem",borderRadius:10,border:"none",background:"var(--hl)",color:"#0a0a0a",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".88rem",cursor:"pointer"}}>
+          تطبيق التقسيمة ← العرض المرئي
+        </button>
+      )}
+    </div>
+  );
+}
+
+function TaqseemPanel({accs}){
+  const fb=window.__fb;
+  const today=new Date().toISOString().slice(0,10);
+
+  const[users,setUsers]=useState([]);       // [{uid,displayName,nickname,email,whatsapp}]
+  const[assign,setAssign]=useState({});     // {uid: [accId,...]}
+  const[saved,setSaved]=useState(false);
+  const[loading,setLoading]=useState(true);
+  const[saving,setSaving]=useState(false);
+  const[editNick,setEditNick]=useState(null); // uid being edited
+  const[nickVal,setNickVal]=useState("");
+  const[search,setSearch]=useState("");
+  const[mode,setMode]=useState("visual"); // visual | text
+
+  // Load users + today's taqseem
+  React.useEffect(function(){
+    if(!fb)return;
+    Promise.all([
+      fb.getDocs(fb.collection(fb.db,"user_data")),
+      fb.getDocs(fb.collection(fb.db,"fcm_tokens")),
+      fb.getDoc(fb.doc(fb.db,"taqseem",today))
+    ]).then(function(res){
+      // merge user data
+      var ud={}, td={};
+      res[0].docs.forEach(function(d){if(d.data().uid)ud[d.data().uid]=d.data();});
+      res[1].docs.forEach(function(d){if(d.data().uid)td[d.data().uid]=d.data();});
+      var uids=[...new Set([...Object.keys(ud),...Object.keys(td)])];
+      var list=uids.map(function(uid){
+        var u=Object.assign({},td[uid]||{},ud[uid]||{});
+        return {uid,displayName:u.displayName||"",nickname:u.nickname||u.displayName||"",email:u.email||"",whatsapp:u.whatsapp||""};
+      }).filter(function(u){return u.uid;});
+      setUsers(list);
+      // load saved taqseem
+      if(res[2].exists()&&res[2].data().assignMap){
+        setAssign(res[2].data().assignMap);
+        setSaved(true);
+      }
+      setLoading(false);
+    }).catch(function(){setLoading(false);});
+  },[]);
+
+  function toggleAcc(uid,accId){
+    setAssign(function(prev){
+      var cur=prev[uid]||[];
+      var next=cur.includes(accId)?cur.filter(function(x){return x!==accId;}):[...cur,accId];
+      return Object.assign({},prev,{[uid]:next});
+    });
+    setSaved(false);
+  }
+
+  async function saveNickname(uid){
+    if(!nickVal.trim())return;
+    try{
+      await fb.setDoc(fb.doc(fb.db,"user_data",uid),{nickname:nickVal.trim()},{merge:true});
+      setUsers(function(prev){return prev.map(function(u){return u.uid===uid?Object.assign({},u,{nickname:nickVal.trim()}):u;});});
+      setEditNick(null);
+    }catch(e){alert(e.message);}
+  }
+
+  async function saveTaqseem(){
+    setSaving(true);
+    try{
+      // build parsed array for MineTab
+      var parsed=users.map(function(u){
+        return {person:u.nickname||u.displayName,uid:u.uid,accIds:assign[u.uid]||[]};
+      }).filter(function(p){return p.accIds.length>0;});
+      await fb.setDoc(fb.doc(fb.db,"taqseem",today),{
+        assignMap:assign,
+        parsed:parsed,
+        date:today,
+        updatedAt:new Date().toISOString()
+      });
+      setSaved(true);
+    }catch(e){alert("خطأ: "+e.message);}
+    setSaving(false);
+  }
+
+  async function clearTaqseem(){
+    if(!window.confirm("تأكيد مسح التقسيمة؟"))return;
+    try{
+      await fb.deleteDoc(fb.doc(fb.db,"taqseem",today));
+      setAssign({});setSaved(false);
+    }catch(e){}
+  }
+
+  // unassigned accs
+  var assignedAll=[].concat(...Object.values(assign));
+  var unassigned=accs.filter(function(a){return !assignedAll.includes(a.id);});
+  var filteredAccs=search.trim()?accs.filter(function(a){return a.name&&a.name.includes(search);}):accs;
+
+  if(loading)return <div style={{padding:"2rem",textAlign:"center",color:"var(--dim)"}}>جاري التحميل...</div>;
+
+  return(
+    <div>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem",flexWrap:"wrap",gap:".5rem"}}>
+        <div>
+          <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1rem"}}>تقسيمة اليوم</div>
+          <div style={{fontSize:".68rem",color:"var(--dim)",marginTop:".1rem"}}>بتتمسح تلقائياً كل يوم الساعة 1 الصبح ·
+            <span style={{color:"#fbbf24",marginRight:".3rem"}}>{unassigned.length} أكونت مش متوزعة</span>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:".4rem",alignItems:"center",flexWrap:"wrap"}}>
+          {saved&&<span style={{fontSize:".65rem",color:"#4ade80",background:"rgba(74,222,128,.08)",border:"1px solid rgba(74,222,128,.2)",padding:".18rem .55rem",borderRadius:20}}>✓ محفوظة</span>}
+          {Object.keys(assign).length>0&&<button onClick={clearTaqseem} style={{padding:".3rem .7rem",borderRadius:8,border:"1px solid rgba(239,68,68,.25)",background:"rgba(239,68,68,.06)",color:"#f87171",fontFamily:"'Cairo',sans-serif",fontSize:".72rem",cursor:"pointer"}}>مسح</button>}
+          {/* Mode switch */}
+          <div style={{display:"flex",background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.08)",borderRadius:8,overflow:"hidden"}}>
+            <button onClick={()=>setMode("visual")} style={{padding:".3rem .7rem",border:"none",background:mode==="visual"?"var(--hl)":"transparent",color:mode==="visual"?"#0a0a0a":"var(--dim)",fontFamily:"'Cairo',sans-serif",fontSize:".72rem",fontWeight:600,cursor:"pointer"}}>⊞ مرئي</button>
+            <button onClick={()=>setMode("text")} style={{padding:".3rem .7rem",border:"none",background:mode==="text"?"var(--hl)":"transparent",color:mode==="text"?"#0a0a0a":"var(--dim)",fontFamily:"'Cairo',sans-serif",fontSize:".72rem",fontWeight:600,cursor:"pointer"}}>✏️ نص</button>
+          </div>
+        </div>
+      </div>
+
+      {/* TEXT MODE */}
+      {mode==="text"&&(
+        <TextTaqseem accs={accs} users={users} onApply={function(newAssign){setAssign(newAssign);setSaved(false);setMode("visual");}}/>
+      )}
+
+      {/* VISUAL MODE */}
+      {mode==="visual"&&<>
+
+      {/* Search accs */}
+      <input
+        placeholder="ابحث عن أكونت..."
+        value={search}
+        onChange={function(e){setSearch(e.target.value);}}
+        style={{width:"100%",padding:".5rem .9rem",borderRadius:8,border:"1px solid rgba(255,255,255,.1)",background:"rgba(255,255,255,.04)",color:"var(--text)",fontFamily:"'Cairo',sans-serif",fontSize:".82rem",marginBottom:"1rem",direction:"rtl"}}
+      />
+
+      {/* Users list */}
+      {users.length===0?(
+        <div style={{textAlign:"center",padding:"2rem",color:"var(--dim)"}}>
+          <div style={{fontSize:"2rem",marginBottom:".5rem"}}>👥</div>
+          <div>مفيش يوزرز لحد دلوقتي</div>
+          <div style={{fontSize:".72rem",marginTop:".3rem"}}>لازم حد يعمل Google Login الأول</div>
+        </div>
+      ):(
+        <div style={{display:"grid",gap:"1rem"}}>
+          {users.map(function(u){
+            var myAccIds=assign[u.uid]||[];
+            var myAccs=accs.filter(function(a){return myAccIds.includes(a.id);});
+            var showAccs=search.trim()?filteredAccs:accs;
+            return(
+              <div key={u.uid} style={{background:"rgba(255,255,255,.025)",border:"1px solid rgba(255,255,255,.08)",borderRadius:12,overflow:"hidden"}}>
+                {/* User header */}
+                <div style={{padding:".75rem 1rem",borderBottom:"1px solid rgba(255,255,255,.06)",display:"flex",alignItems:"center",gap:".7rem"}}>
+                  <div style={{width:38,height:38,borderRadius:"50%",background:"rgba(212,165,116,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.1rem",flexShrink:0}}>👤</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    {editNick===u.uid?(
+                      <div style={{display:"flex",gap:".35rem",alignItems:"center"}}>
+                        <input
+                          value={nickVal}
+                          onChange={function(e){setNickVal(e.target.value);}}
+                          onKeyDown={function(e){if(e.key==="Enter")saveNickname(u.uid);if(e.key==="Escape")setEditNick(null);}}
+                          autoFocus
+                          style={{flex:1,padding:".3rem .6rem",borderRadius:6,border:"1px solid rgba(212,165,116,.4)",background:"rgba(212,165,116,.06)",color:"var(--text)",fontFamily:"'Cairo',sans-serif",fontSize:".85rem",direction:"rtl"}}
+                        />
+                        <button onClick={function(){saveNickname(u.uid);}} style={{padding:".28rem .6rem",borderRadius:6,border:"none",background:"var(--hl)",color:"#0a0a0a",fontWeight:700,fontSize:".72rem",fontFamily:"'Cairo',sans-serif",cursor:"pointer"}}>حفظ</button>
+                        <button onClick={function(){setEditNick(null);}} style={{padding:".28rem .6rem",borderRadius:6,border:"1px solid rgba(255,255,255,.1)",background:"transparent",color:"var(--dim)",fontSize:".72rem",fontFamily:"'Cairo',sans-serif",cursor:"pointer"}}>إلغاء</button>
+                      </div>
+                    ):(
+                      <div style={{display:"flex",alignItems:"center",gap:".4rem"}}>
+                        <span style={{fontWeight:700,fontSize:".88rem"}}>{u.nickname||u.displayName||"بدون اسم"}</span>
+                        <button onClick={function(){setEditNick(u.uid);setNickVal(u.nickname||u.displayName||"");}} style={{background:"none",border:"none",color:"var(--dim)",cursor:"pointer",fontSize:".75rem",padding:".1rem .25rem"}}>✎</button>
+                      </div>
+                    )}
+                    <div style={{fontSize:".65rem",color:"var(--dim)"}}>{u.email} {u.whatsapp&&"· "+u.whatsapp}</div>
+                  </div>
+                  <span style={{fontSize:".7rem",color:"var(--hl)",background:"rgba(212,165,116,.08)",border:"1px solid rgba(212,165,116,.2)",padding:".15rem .5rem",borderRadius:20,flexShrink:0,fontWeight:700}}>{myAccIds.length} أكونت</span>
+                </div>
+
+                {/* Assigned accs chips */}
+                {myAccs.length>0&&(
+                  <div style={{padding:".5rem 1rem .25rem",display:"flex",flexWrap:"wrap",gap:".3rem"}}>
+                    {myAccs.map(function(a){return(
+                      <span key={a.id} onClick={function(){toggleAcc(u.uid,a.id);}} style={{fontSize:".72rem",padding:".2rem .6rem",borderRadius:20,background:"rgba(212,165,116,.12)",border:"1px solid rgba(212,165,116,.3)",color:"var(--hl)",cursor:"pointer",display:"flex",alignItems:"center",gap:".25rem"}}>
+                        {a.name} <span style={{fontSize:".65rem",opacity:.7}}>✕</span>
+                      </span>
+                    );})}
+                  </div>
+                )}
+
+                {/* Checkboxes */}
+                <div style={{padding:".5rem 1rem .75rem",display:"flex",flexWrap:"wrap",gap:".3rem"}}>
+                  {showAccs.filter(function(a){return !myAccIds.includes(a.id);}).map(function(a){
+                    var taken=assignedAll.includes(a.id)&&!myAccIds.includes(a.id);
+                    return(
+                      <button key={a.id} onClick={function(){if(!taken)toggleAcc(u.uid,a.id);}} disabled={taken} style={{fontSize:".7rem",padding:".2rem .58rem",borderRadius:20,border:"1px solid rgba(255,255,255,.1)",background:"rgba(255,255,255,.03)",color:taken?"rgba(255,255,255,.25)":"var(--dim)",cursor:taken?"not-allowed":"pointer",transition:"all .15s"}}
+                        onMouseEnter={function(e){if(!taken)e.target.style.borderColor="rgba(212,165,116,.4)";}}
+                        onMouseLeave={function(e){e.target.style.borderColor="rgba(255,255,255,.1)";}}>
+                        {a.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Unassigned warning */}
+      {unassigned.length>0&&!search&&(
+        <div style={{marginTop:"1rem",padding:".6rem .9rem",background:"rgba(251,191,36,.05)",border:"1px solid rgba(251,191,36,.18)",borderRadius:8,fontSize:".72rem",color:"#fbbf24"}}>
+          ⚠️ {unassigned.length} أكونت مش متوزعة: {unassigned.slice(0,5).map(function(a){return a.name;}).join(" · ")}{unassigned.length>5?"...":""}
+        </div>
+      )}
+
+      </> /* end visual mode */}
+
+      {/* Save button */}
+      {mode==="visual"&&<button onClick={saveTaqseem} disabled={saving||users.length===0} style={{width:"100%",marginTop:"1rem",padding:".75rem",borderRadius:10,border:"none",background:"var(--hl)",color:"#0a0a0a",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".9rem",cursor:saving||users.length===0?"not-allowed":"pointer",opacity:saving||users.length===0?.5:1}}>
+        {saving?"⏳ جاري الحفظ...":"💾 حفظ التقسيمة"}
+      </button>}
+    </div>
+  );
+}
+
+
 function UsersPanel(){
   const[users,setUsers]=useState([]);
   const[load,setLoad]=useState(true);
   React.useEffect(()=>{
     var fb=window.__fb;if(!fb)return;
-    fb.getDocs(fb.collection(fb.db,"fcm_tokens")).then(function(snap){
-      var list=snap.docs.map(function(d){return d.data();}).filter(function(u){return u.uid;});
-      // dedupe by uid
-      var seen={};
-      list=list.filter(function(u){if(seen[u.uid])return false;seen[u.uid]=true;return true;});
+    // Load from user_data (has WA) and fcm_tokens (has platform)
+    Promise.all([
+      fb.getDocs(fb.collection(fb.db,"user_data")),
+      fb.getDocs(fb.collection(fb.db,"fcm_tokens"))
+    ]).then(function(results){
+      var userData={};
+      results[0].docs.forEach(function(d){if(d.data().uid)userData[d.data().uid]=d.data();});
+      var tokenData={};
+      results[1].docs.forEach(function(d){if(d.data().uid)tokenData[d.data().uid]=d.data();});
+      // merge
+      var uids=new Set([...Object.keys(userData),...Object.keys(tokenData)]);
+      var list=[];
+      uids.forEach(function(uid){
+        var u=Object.assign({},tokenData[uid]||{},userData[uid]||{});
+        if(u.uid)list.push(u);
+      });
       list.sort(function(a,b){return (b.updatedAt||"").localeCompare(a.updatedAt||"");});
       setUsers(list);setLoad(false);
     }).catch(function(){setLoad(false);});
@@ -2291,11 +2686,21 @@ function UsersPanel(){
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontWeight:600,fontSize:".85rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.displayName||"بدون اسم"}</div>
             <div style={{fontSize:".7rem",color:"var(--dim)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email||"—"}</div>
+            {u.whatsapp&&<a href={"https://wa.me/"+u.whatsapp} target="_blank" rel="noreferrer" style={{fontSize:".7rem",color:"#25D366",display:"flex",alignItems:"center",gap:".2rem",marginTop:".15rem",textDecoration:"none"}}>واتساب: {u.whatsapp}</a>}
+            <div style={{fontSize:".6rem",color:"var(--dim)",marginTop:".1rem"}}>{u.platform||"web"} {u.updatedAt?"· "+new Date(u.updatedAt).toLocaleDateString("ar-EG"):""}</div>
           </div>
-          <div style={{textAlign:"left",flexShrink:0}}>
-            <div style={{fontSize:".62rem",color:"var(--dim)",background:"rgba(255,255,255,.04)",padding:".15rem .45rem",borderRadius:4}}>{u.platform||"web"}</div>
-            {u.updatedAt&&<div style={{fontSize:".58rem",color:"var(--dim)",marginTop:".2rem"}}>{new Date(u.updatedAt).toLocaleDateString("ar-EG")}</div>}
-          </div>
+          <button onClick={async function(){
+            if(!window.confirm("تأكيد حذف: "+(u.displayName||u.email)+"?"))return;
+            var fb=window.__fb;
+            try{
+              // delete all fcm tokens for this user
+              var snap=await fb.getDocs(fb.collection(fb.db,"fcm_tokens"));
+              for(var d of snap.docs){if(d.data().uid===u.uid)await fb.deleteDoc(fb.doc(fb.db,"fcm_tokens",d.id));}
+              // delete user favs
+              await fb.deleteDoc(fb.doc(fb.db,"user_favs",u.uid));
+              setUsers(function(prev){return prev.filter(function(x){return x.uid!==u.uid;});});
+            }catch(e){alert(e.message);}
+          }} style={{padding:".3rem .6rem",borderRadius:4,border:"1px solid rgba(239,68,68,.22)",background:"rgba(239,68,68,.06)",color:"#f87171",fontSize:".7rem",fontWeight:700,fontFamily:"'Cairo',sans-serif",flexShrink:0,minHeight:32}}>حذف</button>
         </div>
       );})}
     </div>
@@ -2357,7 +2762,7 @@ function App(){
   const[pendingQCount,setPendingQCount]=useState(0);
 
   // Acc form
-  const EA={name:"",category:"مطاعم",avatar:"",coverImage:"",description:"",tags:"",status:"نشط",joinedDate:"",fixedReply:"",timesReply:"",contactReply:"",extraReplies:[],galleryImages:[]};
+  const EA={name:"",category:"مطاعم",avatar:"",coverImage:"",description:"",tags:"",status:"نشط",joinedDate:"",assignedTo:"",fixedReply:"",timesReply:"",contactReply:"",extraReplies:[],galleryImages:[]};
   const[showAF,setShowAF]=useState(false);
   const[af,setAf]=useState(EA);
   const[eAid,setEAid]=useState(null);
@@ -2471,7 +2876,7 @@ function App(){
 
   /* ── Acc form ── */
   function openAF(a=null){
-    if(a){setAf({...a,tags:(a.tags||[]).join(", "),fixedReply:a.fixedReply||"",timesReply:a.timesReply||"",contactReply:a.contactReply||"",extraReplies:a.extraReplies||[],galleryImages:a.galleryImages||[]});setLnks(a.links?.length?a.links:[{label:"",url:"",icon:""}]);setEAid(a.id);}
+    if(a){setAf({...a,tags:(a.tags||[]).join(", "),assignedTo:a.assignedTo||"",fixedReply:a.fixedReply||"",timesReply:a.timesReply||"",contactReply:a.contactReply||"",extraReplies:a.extraReplies||[],galleryImages:a.galleryImages||[]});setLnks(a.links?.length?a.links:[{label:"",url:"",icon:""}]);setEAid(a.id);}
     else{setAf(EA);setLnks([{label:"",url:"",icon:""}]);setEAid(null);}
     setShowAF(true);
   }
@@ -2481,7 +2886,7 @@ function App(){
     try{
       await fb.setDoc(fb.doc(fb.db,"accounts",id),{...af,tags:af.tags.split(",").map(t=>t.trim()).filter(Boolean),links:lnks.filter(l=>l.label&&l.url),updatedAt:new Date().toISOString()});
       msg("✅ تم الحفظ");setShowAF(false);
-      if(isNew){showLocalNotif("👤 أكونت جديد!","تم إضافة: "+af.name);logActivity("add_account","إضافة أكونت: "+af.name,"من السايت");sendPushToAll("👤 أكونت جديد — "+af.name,"انضم لـ Rebranding Data Mod ✨");}
+      if(isNew){showLocalNotif("👤 أكونت جديد!","تم إضافة: "+af.name);logActivity("add_account","إضافة أكونت: "+af.name,"من السايت");sendPushToAll("👤 أكونت جديد — "+af.name,"انضم لـ Rebranding Data Mod ✨",id);}
       else{showLocalNotif("✏️ تم التعديل","تم تعديل أكونت: "+af.name);logActivity("edit_account","تعديل أكونت: "+af.name,"من السايت");}
     }
     catch(e){alert(e.message);}setBusy(false);
@@ -2518,7 +2923,7 @@ function App(){
     try{
       await fb.setDoc(fb.doc(fb.db,"offers",id),{...of,updatedAt:new Date().toISOString()});
       msg("✅ تم الحفظ");setShowOF(false);
-      if(isNew){showLocalNotif("🎁 عرض جديد!","تم إضافة: "+of.title+(accName?" لـ "+accName:""));logActivity("add_offer","إضافة عرض: "+of.title,"الأكونت: "+accName);sendPushToAll("🎁 عرض جديد — "+(accName||"Rebranding"),of.title+(of.expiryDate?" · ينتهي "+of.expiryDate:""));}
+      if(isNew){showLocalNotif("🎁 عرض جديد!","تم إضافة: "+of.title+(accName?" لـ "+accName:""));logActivity("add_offer","إضافة عرض: "+of.title,"الأكونت: "+accName);sendPushToAll("🎁 عرض جديد — "+(accName||"Rebranding"),of.title+(of.expiryDate?" · ينتهي "+of.expiryDate:""),of.accountId);}
       else{showLocalNotif("✏️ تم التعديل","تم تعديل عرض: "+of.title);logActivity("edit_offer","تعديل عرض: "+of.title,"من السايت");sendPushToAll("✏️ تم تحديث عرض — "+(accs.find(a=>a.id===of.accountId)?.name||"Rebranding"),of.title);}
     }
     catch(e){alert(e.message);}setBusy(false);
@@ -2543,6 +2948,8 @@ function App(){
 
   /* ── FCM Init ── */
   const[showNotifPrompt,setShowNotifPrompt]=useState(false);
+  const[showWAPrompt,setShowWAPrompt]=useState(false);
+  const[waInput,setWaInput]=useState("");
   // Init notifications بعد ما Firebase يتجهز
   React.useEffect(()=>{
     if(!fbOk)return;
@@ -2595,13 +3002,25 @@ function App(){
       if(u){
         // FCM token
         if(Notification.permission==="granted")registerFCMToken();
-        // load favs from Firestore
-        fb.getDoc(fb.doc(fb.db,"user_favs",u.uid)).then(function(d){
-          if(d.exists()&&Array.isArray(d.data().favs)){
-            setFavorites(d.data().favs);
-            try{localStorage.setItem("rb_favs",JSON.stringify(d.data().favs));}catch(e){}
+        // load user data from Firestore
+        fb.getDoc(fb.doc(fb.db,"user_data",u.uid)).then(function(d){
+          if(d.exists()){
+            var data=d.data();
+            if(Array.isArray(data.favs)){
+              setFavorites(data.favs);
+              try{localStorage.setItem("rb_favs",JSON.stringify(data.favs));}catch(e){}
+            }
+            // if no whatsapp saved, show prompt
+            if(!data.whatsapp){
+              setTimeout(function(){setShowWAPrompt(true);},1500);
+            }
+          } else {
+            // new user - show WA prompt
+            setTimeout(function(){setShowWAPrompt(true);},1500);
           }
-        }).catch(function(){});
+        }).catch(function(){
+          setTimeout(function(){setShowWAPrompt(true);},1500);
+        });
         // register FCM token linked to user
         fb.setDoc(fb.doc(fb.db,"fcm_tokens",u.uid+"_web"),{
           uid:u.uid,email:u.email||"",displayName:u.displayName||"",
@@ -2621,7 +3040,7 @@ function App(){
       var fb=window.__fb;
       if(fb&&window.__currentUser){
         var uid=window.__currentUser.uid;
-        fb.setDoc(fb.doc(fb.db,"user_favs",uid),{uid:uid,favs:next,updatedAt:new Date().toISOString()}).catch(function(){});
+        fb.setDoc(fb.doc(fb.db,"user_data",uid),{favs:next,updatedAt:new Date().toISOString()},{merge:true}).catch(function(){});
       }
       return next;
     });
@@ -2670,6 +3089,12 @@ function App(){
 
   const fAccs=useMemo(()=>{
     let list=cat==="كل شيء"?accs:accs.filter(a=>a.category===cat);
+    // لو عضو فريق logged in → يشوف بس الأكونتات المسؤول عنها
+    if(user&&!admin){
+      var uName=(user.displayName||user.email||"").toLowerCase();
+      var assigned=list.filter(function(a){return a.assignedTo&&a.assignedTo.toLowerCase()===uName;});
+      if(assigned.length>0)list=assigned;
+    }
     if(filterPinned)list=list.filter(a=>a.pinned);
     if(search.trim()){
       const q=search.trim().toLowerCase();
@@ -2793,6 +3218,46 @@ function App(){
               <button onClick={()=>setShowImport(false)} style={S.ghost}>إلغاء</button>
               <button onClick={doImport} disabled={busy} style={{...S.pBtn,opacity:busy?.6:1}}>{busy?"⏳...":"استيراد ✓"}</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── WhatsApp Prompt (after login) ── */}
+      {showWAPrompt&&user&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.85)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:998,padding:"1rem",animation:"fadeInBg .2s ease"}}>
+          <div style={{background:"#111",border:"1px solid rgba(212,165,116,.2)",borderRadius:20,padding:"2rem 1.6rem",width:"100%",maxWidth:360,textAlign:"center",animation:"modalIn .25s ease"}}>
+            <div style={{width:64,height:64,borderRadius:"50%",overflow:"hidden",border:"2px solid rgba(212,165,116,.35)",margin:"0 auto 1rem"}}>
+              <img src={LOGO} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
+            </div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1.2rem",marginBottom:".4rem"}}>أهلاً {user.displayName?.split(" ")[0]||""} 👋</div>
+            <div style={{fontSize:".8rem",color:"var(--dim)",lineHeight:1.7,marginBottom:"1.4rem"}}>حط رقم واتساب بتاعك عشان نبعتلك التنبيهات والعروض الجديدة على طول</div>
+            <div style={{position:"relative",marginBottom:".75rem"}}>
+              <span style={{position:"absolute",right:"1rem",top:"50%",transform:"translateY(-50%)",fontSize:"1.1rem"}}>📱</span>
+              <input
+                type="tel"
+                placeholder="01XXXXXXXXX"
+                value={waInput}
+                onChange={e=>setWaInput(e.target.value.replace(/[^0-9+]/g,""))}
+                style={{...S.inp,paddingRight:"2.8rem",textAlign:"right",letterSpacing:".05em",marginBottom:0,direction:"ltr"}}
+                autoFocus
+              />
+            </div>
+            <button onClick={async function(){
+              if(!waInput.trim()){setShowWAPrompt(false);return;}
+              var fb=window.__fb;var uid=user.uid;
+              var wa=waInput.trim().replace(/^0/,"20");
+              try{
+                await fb.setDoc(fb.doc(fb.db,"user_data",uid),{
+                  uid,whatsapp:wa,displayName:user.displayName||"",email:user.email||"",
+                  updatedAt:new Date().toISOString()
+                },{merge:true});
+                msg("✅ تم حفظ رقم الواتساب!");
+              }catch(e){}
+              setShowWAPrompt(false);
+            }} style={{...S.pBtn,width:"100%",padding:".8rem",marginBottom:".6rem",display:"flex",alignItems:"center",justifyContent:"center",gap:".5rem"}}>
+              <span>حفظ الرقم</span>
+            </button>
+            <button onClick={()=>setShowWAPrompt(false)} style={{width:"100%",background:"none",border:"none",color:"var(--dim)",fontFamily:"'Cairo',sans-serif",fontSize:".8rem",cursor:"pointer",padding:".5rem",minHeight:36}}>مش دلوقتي</button>
           </div>
         </div>
       )}
@@ -2952,7 +3417,12 @@ function App(){
           </div>
 
           <div className="tab-bar">
-            <button className={"tab-btn"+(ptab==="accs"?" on":"")} onClick={()=>setPtab("accs")}>📁 الأكونتات</button>
+            {user&&(
+              <button className={"tab-btn"+(ptab==="mine"?" on":"")} onClick={()=>setPtab("mine")} style={{color:ptab==="mine"?"var(--hl)":"var(--dim)"}}>
+                ⭐ تقسيمتي
+              </button>
+            )}
+            <button className={"tab-btn"+(ptab==="accs"?" on":"")} onClick={()=>setPtab("accs")}>📁 الكل</button>
             <button className={"tab-btn"+(ptab==="offs"?" on":"")} onClick={()=>setPtab("offs")}>{`🎁 العروض${urgentCount>0?" ⚠️":""}`}</button>
           </div>
 
@@ -2968,6 +3438,9 @@ function App(){
             )}
           </div>
 
+          {ptab==="mine"&&user&&(
+            <MineTab user={user} accs={accs} onOpenProfile={openProfile} onShare={shareAcc} onTagClick={(t)=>{setSearch(t);setPtab("accs");}}/>
+          )}
           {ptab==="accs"&&<>
             <div style={{display:"flex",gap:".38rem",flexWrap:"wrap",marginBottom:"1.1rem",alignItems:"center"}}>
               {CATS.map(cc=><button key={cc} onClick={()=>setCat(cc)} style={{padding:".28rem .85rem",borderRadius:22,border:"1px solid",fontWeight:500,fontSize:".75rem",fontFamily:"'Cairo',sans-serif",borderColor:cat===cc?"var(--hl)":"var(--border)",background:cat===cc?"rgba(212,165,116,.1)":"transparent",color:cat===cc?"var(--hl)":"var(--dim)",transition:"all .18s",minHeight:38}}>{cc}</button>)}
@@ -3045,11 +3518,17 @@ function App(){
             <button className={"tab-btn"+(atab==="qa"?" on":"")} onClick={()=>{setAtab("qa");setAdminSearch("");}}>
               {`❓ أسئلة (${accs.reduce(function(sum,a){return sum+(a.trainedQA||[]).filter(function(q){return q.q&&q.a;}).length;},0)})`}
             </button>
+            <button className={"tab-btn"+(atab==="taqseem"?" on":"")} onClick={()=>{setAtab("taqseem");setAdminSearch("");}} style={{color:atab==="taqseem"?"var(--hl)":"var(--dim)"}}>📋 تقسيمة اليوم</button>
             <button className={"tab-btn"+(atab==="users"?" on":"")} onClick={()=>{setAtab("users");setAdminSearch("");}}>👥 اليوزرز</button>
             <button className={"tab-btn"+(atab==="log"?" on":"")} onClick={()=>{setAtab("log");setAdminSearch("");}}>📋 آخر التعديلات</button>
           </div>
 
-          {/* ── Logged-in Users ── */}
+          {/* ── تقسيمة اليوم ── */}
+      {atab==="taqseem"&&(
+        <TaqseemPanel accs={accs} db={window.__fb?.db}/>
+      )}
+
+      {/* ── Logged-in Users ── */}
       {atab==="users"&&(
         <div>
           <div style={{fontSize:".8rem",color:"var(--dim)",marginBottom:"1rem"}}>اليوزرز اللي دخلوا بـ Google</div>
@@ -3059,6 +3538,10 @@ function App(){
       {atab==="accs"&&<>
             <div style={{display:"flex",gap:".6rem",marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
               <button className="bh" onClick={()=>openAF()} style={{...S.pBtn,flexShrink:0}}>+ أضف أكونت</button>
+              <select value={adminSearch.startsWith("team:")?adminSearch.replace("team:",""):"__all__"} onChange={e=>{if(e.target.value==="__all__")setAdminSearch("");else setAdminSearch("team:"+e.target.value);}} style={{padding:".45rem .7rem",borderRadius:8,border:"1px solid rgba(255,255,255,.1)",background:"#111",color:"var(--dim)",fontFamily:"'Cairo',sans-serif",fontSize:".78rem",minHeight:42,flexShrink:0}}>
+                <option value="__all__">كل الفريق</option>
+                {[...new Set(accs.map(a=>a.assignedTo).filter(Boolean))].map(function(name){return <option key={name} value={name}>{name}</option>;})}
+              </select>
               <div className="search-wrap" style={{flex:1,minWidth:180}}>
                 <span className="search-icon">🔍</span>
                 <input placeholder="ابحث في الأكونتات..." value={adminSearch} onChange={e=>setAdminSearch(e.target.value)} style={{paddingRight:"2.2rem"}}/>
@@ -3066,16 +3549,16 @@ function App(){
               {adminSearch&&<span style={{fontSize:".7rem",color:"var(--dim)"}}>{accs.filter(a=>(a.name||"").toLowerCase().includes(adminSearch.toLowerCase())||(a.description||"").toLowerCase().includes(adminSearch.toLowerCase())||(a.category||"").toLowerCase().includes(adminSearch.toLowerCase())).length} نتيجة</span>}
             </div>
             <div style={{display:"grid",gap:".55rem"}}>
-              {accs.filter(a=>!adminSearch.trim()||(a.name||"").toLowerCase().includes(adminSearch.toLowerCase())||(a.description||"").toLowerCase().includes(adminSearch.toLowerCase())||(a.category||"").toLowerCase().includes(adminSearch.toLowerCase())||(a.tags||[]).some(t=>t.toLowerCase().includes(adminSearch.toLowerCase()))).map(a=>(
+              {accs.filter(a=>{if(!adminSearch.trim())return true;if(adminSearch.startsWith("team:")){var t=adminSearch.replace("team:","").toLowerCase();return (a.assignedTo||"").toLowerCase()===t;}return (a.name||"").toLowerCase().includes(adminSearch.toLowerCase())||(a.description||"").toLowerCase().includes(adminSearch.toLowerCase())||(a.category||"").toLowerCase().includes(adminSearch.toLowerCase())||(a.tags||[]).some(t=>t.toLowerCase().includes(adminSearch.toLowerCase()));}).map(a=>(
                 <div key={a.id} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,display:"flex",alignItems:"center",gap:".85rem",padding:".75rem .9rem",flexWrap:"wrap",transition:"border-color .18s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(212,165,116,.18)"} onMouseLeave={e=>e.currentTarget.style.borderColor="var(--border)"}>
                   {a.avatar&&<img src={a.avatar} style={{width:40,height:40,borderRadius:"50%",objectFit:"cover",border:"1px solid rgba(212,165,116,.2)"}} alt=""/>}
-                  <div style={{flex:1,minWidth:120}}><div style={{fontWeight:700,fontFamily:"'Playfair Display',serif"}}>{a.name}</div><div style={{fontSize:".7rem",color:"var(--dim)"}}>{a.category} · {a.links?.length||0} لينكات · {(a.galleryImages||[]).length} صورة · {(a.extraReplies||[]).length} ردود إضافية</div></div>
+                  <div style={{flex:1,minWidth:120}}><div style={{fontWeight:700,fontFamily:"'Playfair Display',serif"}}>{a.name}</div><div style={{fontSize:".7rem",color:"var(--dim)"}}>{a.category} · {a.links?.length||0} لينكات · {(a.galleryImages||[]).length} صورة · {(a.extraReplies||[]).length} ردود إضافية</div>{a.assignedTo&&<div style={{fontSize:".66rem",color:"var(--hl)",marginTop:".15rem",display:"flex",alignItems:"center",gap:".25rem"}}><span>👤</span>{a.assignedTo}</div>}</div>
                   <Badge s={a.status}/>
-                  <button className="bh" title={a.pinned?"إلغاء التثبيت":"تثبيت فوق"} onClick={()=>togglePin(a)} style={{padding:".3rem .65rem",borderRadius:4,border:`1px solid ${a.pinned?"rgba(212,165,116,.4)":"var(--border)"}`,fontWeight:600,fontSize:".72rem",fontFamily:"'Cairo',sans-serif",background:a.pinned?"rgba(212,165,116,.12)":"rgba(255,255,255,.04)",color:a.pinned?"var(--hl)":"var(--dim)",minHeight:36}}>📌</button>
-                  <button className="bh" title="QR Code" onClick={()=>setShowQR(a)} style={{padding:".3rem .65rem",borderRadius:4,border:"1px solid var(--border)",fontWeight:600,fontSize:".72rem",fontFamily:"'Cairo',sans-serif",background:"rgba(255,255,255,.04)",color:"var(--dim)",minHeight:36}}>◻️</button>
-                  <button className="bh" title="نسخة" onClick={()=>dupAcc(a)} style={{padding:".3rem .65rem",borderRadius:4,border:"1px solid rgba(212,165,116,.2)",fontWeight:600,fontSize:".72rem",fontFamily:"'Cairo',sans-serif",background:"rgba(212,165,116,.04)",color:"var(--hl)",minHeight:36}}>⧉</button>
-                  <button className="bh" onClick={()=>openAF(a)} style={{padding:".3rem .65rem",borderRadius:4,border:"1px solid var(--border)",fontWeight:600,fontSize:".72rem",fontFamily:"'Cairo',sans-serif",background:"rgba(255,255,255,.04)",color:"var(--dim)",minHeight:36}}>✏️</button>
-                  <button className="bh" onClick={()=>delAcc(a.id)} style={{padding:".3rem .65rem",borderRadius:4,border:"1px solid rgba(239,68,68,.2)",fontWeight:600,fontSize:".72rem",fontFamily:"'Cairo',sans-serif",background:"rgba(239,68,68,.05)",color:"#f87171",minHeight:36}}>🗑️</button>
+                  <button className="bh" title={a.pinned?"إلغاء التثبيت":"تثبيت"} onClick={()=>togglePin(a)} style={{padding:".28rem .6rem",borderRadius:4,border:`1px solid ${a.pinned?"rgba(212,165,116,.4)":"var(--border)"}`,fontWeight:700,fontSize:".68rem",fontFamily:"'Cairo',sans-serif",background:a.pinned?"rgba(212,165,116,.12)":"rgba(255,255,255,.04)",color:a.pinned?"var(--hl)":"var(--dim)",minHeight:34}}>PIN</button>
+                  <button className="bh" title="QR" onClick={()=>setShowQR(a)} style={{padding:".28rem .6rem",borderRadius:4,border:"1px solid var(--border)",fontWeight:700,fontSize:".68rem",fontFamily:"'Cairo',sans-serif",background:"rgba(255,255,255,.04)",color:"var(--dim)",minHeight:34}}>QR</button>
+                  <button className="bh" title="نسخة" onClick={()=>dupAcc(a)} style={{padding:".28rem .6rem",borderRadius:4,border:"1px solid rgba(212,165,116,.2)",fontWeight:700,fontSize:".68rem",fontFamily:"'Cairo',sans-serif",background:"rgba(212,165,116,.04)",color:"var(--hl)",minHeight:34}}>نسخ</button>
+                  <button className="bh" onClick={()=>openAF(a)} style={{padding:".28rem .6rem",borderRadius:4,border:"1px solid var(--border)",fontWeight:700,fontSize:".68rem",fontFamily:"'Cairo',sans-serif",background:"rgba(255,255,255,.04)",color:"var(--dim)",minHeight:34}}>تعديل</button>
+                  <button className="bh" onClick={()=>delAcc(a.id)} style={{padding:".28rem .6rem",borderRadius:4,border:"1px solid rgba(239,68,68,.2)",fontWeight:700,fontSize:".68rem",fontFamily:"'Cairo',sans-serif",background:"rgba(239,68,68,.05)",color:"#f87171",minHeight:34}}>حذف</button>
                 </div>
               ))}
             </div>
@@ -3276,6 +3759,11 @@ function App(){
             <Lbl t="الفئة"/><select value={af.category} onChange={e=>setAf({...af,category:e.target.value})} style={S.sel}>{["مطاعم","أخرى"].map(c=><option key={c}>{c}</option>)}</select>
             <Lbl t="الوصف"/><textarea value={af.description} onChange={e=>setAf({...af,description:e.target.value})} style={{...S.inp,minHeight:65,resize:"vertical"}}/>
             <Lbl t="الحالة"/><select value={af.status} onChange={e=>setAf({...af,status:e.target.value})} style={S.sel}><option>نشط</option><option>متوقف</option></select>
+            <Lbl t="المسؤول (اسم عضو الفريق)"/>
+            <input placeholder="مثال: أحمد، سارة..." value={af.assignedTo} onChange={e=>setAf({...af,assignedTo:e.target.value})} style={{...S.inp}} list="team-members-list"/>
+            <datalist id="team-members-list">
+              {[...new Set(accs.map(a=>a.assignedTo).filter(Boolean))].map(function(name){return <option key={name} value={name}/>;})}
+            </datalist>
             <Lbl t="تاريخ الانضمام (اختياري)"/><input type="date" value={af.joinedDate} onChange={e=>setAf({...af,joinedDate:e.target.value})} style={{...S.inp,marginBottom:".85rem"}}/>
 
             {/* Replies section */}
