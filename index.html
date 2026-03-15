@@ -14,7 +14,7 @@
 <script>
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('sw.js').then(r=>console.log('SW registered')).catch(e=>console.log('SW error',e));
+    navigator.serviceWorker.register('sw.js').then(r=>).catch(e=>);
   });
 }
 </script>
@@ -74,7 +74,7 @@ if('serviceWorker' in navigator){
 @media(max-width:768px){
   .bottom-nav{display:block;}
   .nav-bar{display:none!important;}
-  body{padding-bottom:calc(60px + env(safe-area-inset-bottom,0px));}
+  body{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px));}
   /* Landing mobile fixes */
   .land-page-wrap{padding:1.5rem 1.2rem!important;padding-top:calc(1.5rem + var(--safe-top))!important;}
   .land-logo-wrap{width:90px!important;height:90px!important;margin-bottom:1.2rem!important;}
@@ -114,7 +114,7 @@ body::after{content:'';position:fixed;inset:0;opacity:0.022;pointer-events:none;
 
 ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-track{background:#0a0a0a;}::-webkit-scrollbar-thumb{background:rgba(212,165,116,0.25);border-radius:2px;}
 .bh{transition:opacity .18s;}.bh:hover{opacity:.8;}
-input,select,textarea{outline:none;font-family:'Cairo',sans-serif;-webkit-appearance:none;border-radius:6px;}
+input,select,textarea{outline:none;font-family:'Cairo',sans-serif;-webkit-appearance:none;border-radius:6px;font-size:max(.9rem,16px);}
 
 /* ── Animations ── */
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -135,7 +135,7 @@ input,select,textarea{outline:none;font-family:'Cairo',sans-serif;-webkit-appear
 .page-enter{animation:pageIn .32s ease both;}
 
 /* ── Cards ── */
-.card{transition:transform .22s,box-shadow .22s,border-color .22s;}
+.card{transition:transform .22s,box-shadow .22s,border-color .22s;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
 @media(hover:hover){.card:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(0,0,0,.52);border-color:var(--hl)!important;}}
 
 /* ── Skeleton ── */
@@ -160,7 +160,7 @@ input,select,textarea{outline:none;font-family:'Cairo',sans-serif;-webkit-appear
 
 /* ── Search ── */
 .search-wrap{position:relative;flex:1;max-width:340px;}
-.search-wrap input{width:100%;padding:0.48rem 1rem 0.48rem 2.4rem;border-radius:22px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text);font-family:'Cairo',sans-serif;font-size:0.85rem;direction:rtl;min-height:42px;transition:border-color .2s;}
+.search-wrap input{width:100%;padding:0.48rem 1rem 0.48rem 2.4rem;border-radius:22px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text);font-family:'Cairo',sans-serif;font-size:max(0.85rem,16px);direction:rtl;min-height:42px;transition:border-color .2s;}
 .search-wrap input:focus{border-color:rgba(212,165,116,0.42);}
 .search-icon{position:absolute;left:.8rem;top:50%;transform:translateY(-50%);color:var(--dim);font-size:.8rem;pointer-events:none;}
 
@@ -207,14 +207,16 @@ input,select,textarea{outline:none;font-family:'Cairo',sans-serif;-webkit-appear
 
 /* ── Modal ── */
 .modal-box{animation:modalIn .26s ease both;}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;z-index:300;padding:1rem;animation:fadeInBg .18s ease;overflow-y:auto;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.92);display:flex;align-items:flex-start;justify-content:center;z-index:300;padding:1rem;padding-top:calc(1rem + env(safe-area-inset-top,0px));animation:fadeInBg .18s ease;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+@media(min-height:700px){.modal-overlay{align-items:center;}}
 
 /* ── Nav ── */
 .nav-bar{background:rgba(8,8,8,0.97);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border-bottom:1px solid rgba(255,255,255,0.05);padding:0 1.2rem;padding-top:var(--safe-top);display:flex;align-items:center;justify-content:space-between;height:calc(58px + var(--safe-top));position:sticky;top:0;z-index:50;}
 
 /* ── Tabs ── */
-.tab-bar{display:flex;border-bottom:1px solid var(--border);margin-bottom:1.6rem;overflow-x:auto;-webkit-overflow-scrolling:touch;}
-.tab-btn{padding:.5rem 1.1rem;border:none;background:transparent;color:var(--dim);font-weight:600;font-size:.78rem;font-family:'Cairo',sans-serif;border-bottom:2px solid transparent;transition:all .18s;white-space:nowrap;min-height:44px;}
+.tab-bar{display:flex;border-bottom:1px solid var(--border);margin-bottom:1.6rem;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.tab-bar::-webkit-scrollbar{display:none;}
+.tab-btn{padding:.5rem .9rem;border:none;background:transparent;color:var(--dim);font-weight:600;font-size:.75rem;font-family:'Cairo',sans-serif;border-bottom:2px solid transparent;transition:all .18s;white-space:nowrap;min-height:44px;flex-shrink:0;}
 .tab-btn.on{color:var(--hl);border-bottom-color:var(--hl);}
 
 /* ── WA error btn ── */
@@ -304,7 +306,8 @@ input,select,textarea{outline:none;font-family:'Cairo',sans-serif;-webkit-appear
 .tdot:nth-child(2){animation-delay:.18s;}.tdot:nth-child(3){animation-delay:.36s;}
 .bot-fab{position:fixed;bottom:calc(1.4rem + var(--safe-bottom));left:1.4rem;z-index:160;width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,#d4a574,#b8915f);border:none;color:#0a0a0a;font-size:1.35rem;box-shadow:0 4px 22px rgba(212,165,116,.45);transition:all .22s;display:flex;align-items:center;justify-content:center;cursor:pointer;}
 .bot-fab:hover{transform:scale(1.09);box-shadow:0 6px 30px rgba(212,165,116,.55);}
-.bot-window{position:fixed;bottom:calc(4.8rem + var(--safe-bottom));left:1.4rem;z-index:160;width:calc(100vw - 2.8rem);max-width:420px;background:#0d0d0d;border:1px solid rgba(212,165,116,.25);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.75);animation:slideUp .22s ease;overflow:hidden;display:flex;flex-direction:column;max-height:72vh;}
+.bot-window{position:fixed;bottom:calc(62px + env(safe-area-inset-bottom,0px) + .5rem);left:.8rem;right:.8rem;z-index:160;width:auto;max-width:460px;margin:0 auto;background:#0d0d0d;border:1px solid rgba(212,165,116,.25);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.75);animation:slideUp .22s ease;overflow:hidden;display:flex;flex-direction:column;max-height:calc(100vh - 130px);}
+@media(min-width:640px){.bot-window{left:1.4rem;right:auto;width:calc(100vw - 2.8rem);}}
 .bot-head{display:flex;align-items:center;gap:.6rem;padding:.7rem 1rem;background:rgba(212,165,116,.05);border-bottom:1px solid rgba(255,255,255,.05);flex-shrink:0;}
 .bot-msgs{flex:1;overflow-y:auto;padding:.8rem 1rem;display:flex;flex-direction:column;gap:.55rem;}
 .bot-bubble-user{align-self:flex-start;background:rgba(212,165,116,.12);border:1px solid rgba(212,165,116,.2);color:var(--text);padding:.48rem .8rem;border-radius:12px 12px 4px 12px;font-size:.82rem;max-width:88%;line-height:1.58;font-family:'Cairo',sans-serif;}
@@ -438,7 +441,7 @@ async function downloadAllAsZip(urls,accName,setZipping){
   try{const zip=new JSZip();const folder=zip.folder(accName||"album");
     for(let i=0;i<urls.length;i++){try{const res=await fetch(urls[i]);const blob=await res.blob();const ext=blob.type.includes("png")?"png":"jpg";folder.file(`${i+1}.${ext}`,blob);}catch(e){}}
     const content=await zip.generateAsync({type:"blob"});const a=document.createElement("a");a.href=URL.createObjectURL(content);a.download=`${accName||"album"}.zip`;a.click();URL.revokeObjectURL(a.href);
-  }catch(e){alert("فشل التنزيل");}
+  }catch(e){msg("فشل التنزيل");}
   setZipping(false);
 }
 const CLD_CLOUD="diepkkeyu",CLD_PRESET="rebranding";
@@ -1404,7 +1407,7 @@ async function registerFCMToken(){
       if(title)showLocalNotif(title,body||"");
     });
     return token;
-  }catch(e){console.log("FCM error:",e.message);}
+  }catch(e){}
 }
 
 async function sendPushToAll(title,body,accId){
@@ -1488,7 +1491,7 @@ async function saveUnansweredToFB(q,accName,accId){
     try{
       await fb.setDoc(fb.doc(fb.db,"accounts",matched.id),Object.assign({},matched,{trainedQA:newQA,updatedAt:new Date().toISOString()}));
       await fb.deleteDoc(fb.doc(fb.db,"unanswered_questions",item.id));
-    }catch(e){alert(e.message);}
+    }catch(e){msg("❌ "+e.message);}
   }
   async function send(){
     const txt=input.trim();if(!txt||loading)return;
@@ -2156,7 +2159,19 @@ function ModeSelect({accs,offs,onGuest,onMember,onAdmin}){
         </button>
       </div>
 
-      <div style={{fontSize:".6rem",color:"rgba(255,255,255,.15)",letterSpacing:".1em"}}>Made by Fares Akram</div>
+      {/* Install button */}
+      {window.__installPrompt&&(
+        <button onClick={async function(){
+          var e=window.__installPrompt;
+          if(!e)return;
+          e.prompt();
+          var r=await e.userChoice;
+          if(r.outcome==="accepted")window.__installPrompt=null;
+        }} style={{marginTop:".8rem",display:"flex",alignItems:"center",gap:".5rem",padding:".55rem 1.2rem",borderRadius:30,border:"1px solid rgba(212,165,116,.25)",background:"rgba(212,165,116,.06)",color:"var(--hl)",fontFamily:"'Cairo',sans-serif",fontSize:".78rem",fontWeight:600,cursor:"pointer"}}>
+          📲 نزّل التطبيق
+        </button>
+      )}
+      <div style={{fontSize:".6rem",color:"rgba(255,255,255,.15)",letterSpacing:".1em",marginTop:".8rem"}}>Made by Fares Akram</div>
     </div>
   );
 }
@@ -2392,7 +2407,7 @@ function MineTab({user,accs,onOpenProfile,onShare,onTagClick}){
           <div style={{fontSize:".75rem"}}>الأدمن لسه محددش التقسيمة النهارده</div>
         </div>
       ):(
-        <div className="grid-cards" style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:"1rem"}}>
+        <div className="grid-cards" style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(280px,100%),1fr))",gap:"1rem"}}>
           {myAccs.map(function(a){return(
             <AccCard key={a.id} a={a} onClick={()=>onOpenProfile(a)} onShare={onShare} onTagClick={onTagClick}/>
           );})}
@@ -2489,9 +2504,14 @@ function TextTaqseem({accs,users,onApply}){
       )}
 
       {preview.length>0&&preview.some(function(p){return p.user;})&&(
-        <button onClick={apply} style={{width:"100%",padding:".7rem",borderRadius:10,border:"none",background:"var(--hl)",color:"#0a0a0a",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".88rem",cursor:"pointer"}}>
-          تطبيق التقسيمة ← العرض المرئي
-        </button>
+        <div style={{display:"flex",gap:".6rem"}}>
+          <button onClick={apply} style={{flex:1,padding:".7rem",borderRadius:10,border:"none",background:"var(--hl)",color:"#0a0a0a",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".88rem",cursor:"pointer"}}>
+            تطبيق ← المرئي
+          </button>
+          <button onClick={function(){setText("");setPreview([]);setErr([]);}} style={{padding:".7rem 1rem",borderRadius:10,border:"1px solid rgba(239,68,68,.25)",background:"rgba(239,68,68,.06)",color:"#f87171",fontFamily:"'Cairo',sans-serif",fontWeight:600,fontSize:".82rem",cursor:"pointer"}}>
+            مسح
+          </button>
+        </div>
       )}
     </div>
   );
@@ -2553,7 +2573,7 @@ function TaqseemPanel({accs}){
       await fb.setDoc(fb.doc(fb.db,"user_data",uid),{nickname:nickVal.trim()},{merge:true});
       setUsers(function(prev){return prev.map(function(u){return u.uid===uid?Object.assign({},u,{nickname:nickVal.trim()}):u;});});
       setEditNick(null);
-    }catch(e){alert(e.message);}
+    }catch(e){msg("❌ "+e.message);}
   }
 
   async function saveTaqseem(){
@@ -2606,6 +2626,7 @@ function TaqseemPanel({accs}){
           <div style={{display:"flex",background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.08)",borderRadius:8,overflow:"hidden"}}>
             <button onClick={()=>setMode("visual")} style={{padding:".3rem .7rem",border:"none",background:mode==="visual"?"var(--hl)":"transparent",color:mode==="visual"?"#0a0a0a":"var(--dim)",fontFamily:"'Cairo',sans-serif",fontSize:".72rem",fontWeight:600,cursor:"pointer"}}>⊞ مرئي</button>
             <button onClick={()=>setMode("text")} style={{padding:".3rem .7rem",border:"none",background:mode==="text"?"var(--hl)":"transparent",color:mode==="text"?"#0a0a0a":"var(--dim)",fontFamily:"'Cairo',sans-serif",fontSize:".72rem",fontWeight:600,cursor:"pointer"}}>✏️ نص</button>
+            {mode==="visual"&&Object.keys(assign).length>0&&<span style={{fontSize:".6rem",color:"var(--dim)",padding:"0 .3rem"}}>تقدر ترجع للنص وتعدل</span>}
           </div>
         </div>
       </div>
@@ -2765,7 +2786,7 @@ function UsersPanel(){
               // delete user favs
               await fb.deleteDoc(fb.doc(fb.db,"user_favs",u.uid));
               setUsers(function(prev){return prev.filter(function(x){return x.uid!==u.uid;});});
-            }catch(e){alert(e.message);}
+            }catch(e){msg("❌ "+e.message);}
           }} style={{padding:".3rem .6rem",borderRadius:4,border:"1px solid rgba(239,68,68,.22)",background:"rgba(239,68,68,.06)",color:"#f87171",fontSize:".7rem",fontWeight:700,fontFamily:"'Cairo',sans-serif",flexShrink:0,minHeight:32}}>حذف</button>
         </div>
       );})}
@@ -2845,6 +2866,29 @@ function App(){
   const[importData,setImportData]=useState(null);
   const importRef=useRef();
 
+  /* ── PWA Install + SW Update ── */
+  React.useEffect(function(){
+    // Capture install prompt
+    window.addEventListener("beforeinstallprompt",function(e){
+      e.preventDefault();
+      setInstallPrompt(e);
+      window.__installPrompt=e;
+    });
+    // SW update detection
+    if("serviceWorker" in navigator){
+      navigator.serviceWorker.ready.then(function(reg){
+        reg.addEventListener("updatefound",function(){
+          var newSW=reg.installing;
+          newSW.addEventListener("statechange",function(){
+            if(newSW.state==="installed"&&navigator.serviceWorker.controller){
+              setShowUpdateBanner(true);
+            }
+          });
+        });
+      });
+    }
+  },[]);
+
   /* ── Firebase init ── */
   useEffect(()=>{
     if(window.__fbReady){setFbOk(true);return;}
@@ -2888,10 +2932,10 @@ function App(){
   /* ── Undo delete ── */
   function scheduleDelete(type,id,data){
     if(undoData?.timer)clearTimeout(undoData.timer);
-    const timer=setTimeout(async()=>{try{await window.__fb.deleteDoc(window.__fb.doc(window.__fb.db,type,id));msg("🗑️ تم الحذف");}catch(e){alert(e.message);}setUndoData(null);},5000);
+    const timer=setTimeout(async()=>{try{await window.__fb.deleteDoc(window.__fb.doc(window.__fb.db,type,id));msg("🗑️ تم الحذف");}catch(e){msg("❌ "+e.message);}setUndoData(null);},5000);
     setUndoData({type,id,data,timer});
   }
-  async function undoDelete(){if(!undoData)return;clearTimeout(undoData.timer);try{const fb=window.__fb;await fb.setDoc(fb.doc(fb.db,undoData.type,undoData.id),undoData.data);msg("↩️ تم الاسترجاع");}catch(e){alert(e.message);}setUndoData(null);}
+  async function undoDelete(){if(!undoData)return;clearTimeout(undoData.timer);try{const fb=window.__fb;await fb.setDoc(fb.doc(fb.db,undoData.type,undoData.id),undoData.data);msg("↩️ تم الاسترجاع");}catch(e){msg("❌ "+e.message);}setUndoData(null);}
   function delAcc(id){const data=accs.find(a=>a.id===id);if(!data)return;if(!window.confirm("⚠️ هتحذف أكونت: "+data.name+"\nمتأكد؟"))return;scheduleDelete("accounts",id,data);logActivity("delete_account","حذف أكونت: "+data.name,"من السايت");}
   function delOff(id){const data=offs.find(o=>o.id===id);if(!data)return;scheduleDelete("offers",id,data);logActivity("delete_offer","حذف عرض: "+data.title,"من السايت");}
 
@@ -2901,7 +2945,7 @@ function App(){
     const newDate=new Date();newDate.setDate(newDate.getDate()+30);
     const fb=window.__fb;
     try{await fb.setDoc(fb.doc(fb.db,"offers",oId),{...o,expiryDate:newDate.toISOString().slice(0,10),updatedAt:new Date().toISOString()});msg("✅ تم تجديد العرض 30 يوم");}
-    catch(e){alert(e.message);}
+    catch(e){msg("❌ "+e.message);}
     setRenewOffer(null);
   }
 
@@ -2915,7 +2959,7 @@ function App(){
   function handleImportFile(e){
     const f=e.target.files[0];if(!f)return;
     const reader=new FileReader();
-    reader.onload=ev=>{try{const d=JSON.parse(ev.target.result);setImportData(d);setShowImport(true);}catch(err){alert("ملف غير صالح");}};
+    reader.onload=ev=>{try{const d=JSON.parse(ev.target.result);setImportData(d);setShowImport(true);}catch(err){msg("ملف غير صالح");}};
     reader.readAsText(f);
   }
   async function doImport(){
@@ -2926,7 +2970,7 @@ function App(){
       for(const o of(importData.offers||[])){await fb.setDoc(fb.doc(fb.db,"offers",o.id),o);}
       msg(`✅ تم الاستيراد — ${importData.accounts?.length||0} أكونت، ${importData.offers?.length||0} عرض`);
       setShowImport(false);setImportData(null);
-    }catch(e){alert(e.message);}
+    }catch(e){msg("❌ "+e.message);}
     setBusy(false);
   }
 
@@ -2955,7 +2999,7 @@ function App(){
       if(isNew){showLocalNotif("👤 أكونت جديد!","تم إضافة: "+af.name);logActivity("add_account","إضافة أكونت: "+af.name,"من السايت");sendPushToAll("👤 أكونت جديد — "+af.name,"انضم لـ Rebranding Data Mod ✨",id);}
       else{showLocalNotif("✏️ تم التعديل","تم تعديل أكونت: "+af.name);logActivity("edit_account","تعديل أكونت: "+af.name,"من السايت");}
     }
-    catch(e){alert(e.message);}setBusy(false);
+    catch(e){msg("❌ "+e.message);}setBusy(false);
   }
 
   /* ── Duplicate account ── */
@@ -2964,20 +3008,20 @@ function App(){
     const newId=String(Date.now());
     const newAcc={...a,id:newId,name:a.name+" (نسخة)",pinned:false,updatedAt:new Date().toISOString()};
     try{await fb.setDoc(fb.doc(fb.db,"accounts",newId),newAcc);msg("✅ تم عمل نسخة من الأكونت");}
-    catch(e){alert(e.message);}
+    catch(e){msg("❌ "+e.message);}
   }
 
   /* ── Toggle pin ── */
   async function togglePin(a){
     const fb=window.__fb;
     try{await fb.setDoc(fb.doc(fb.db,"accounts",a.id),{...a,pinned:!a.pinned,updatedAt:new Date().toISOString()});msg(a.pinned?"📌 تم إلغاء التثبيت":"📌 تم التثبيت");}
-    catch(e){alert(e.message);}
+    catch(e){msg("❌ "+e.message);}
   }
 
   async function saveTrainedQA(a,qas){
     var fb=window.__fb;
     try{await fb.setDoc(fb.doc(fb.db,"accounts",a.id),Object.assign({},a,{trainedQA:qas,updatedAt:new Date().toISOString()}));msg("🤖 تم حفظ التدريب!");setShowTrain(false);}
-    catch(e){alert(e.message);}
+    catch(e){msg("❌ "+e.message);}
   }
 
   /* ── Offer form ── */
@@ -2992,7 +3036,7 @@ function App(){
       if(isNew){showLocalNotif("🎁 عرض جديد!","تم إضافة: "+of.title+(accName?" لـ "+accName:""));logActivity("add_offer","إضافة عرض: "+of.title,"الأكونت: "+accName);sendPushToAll("🎁 عرض جديد — "+(accName||"Rebranding"),of.title+(of.expiryDate?" · ينتهي "+of.expiryDate:""),of.accountId);}
       else{showLocalNotif("✏️ تم التعديل","تم تعديل عرض: "+of.title);logActivity("edit_offer","تعديل عرض: "+of.title,"من السايت");sendPushToAll("✏️ تم تحديث عرض — "+(accs.find(a=>a.id===of.accountId)?.name||"Rebranding"),of.title);}
     }
-    catch(e){alert(e.message);}setBusy(false);
+    catch(e){msg("❌ "+e.message);}setBusy(false);
   }
 
   async function login(){
@@ -3015,6 +3059,8 @@ function App(){
   /* ── FCM Init ── */
   const[showNotifPrompt,setShowNotifPrompt]=useState(false);
   const[showWAPrompt,setShowWAPrompt]=useState(false);
+  const[installPrompt,setInstallPrompt]=useState(null);
+  const[showUpdateBanner,setShowUpdateBanner]=useState(false);
   const[waInput,setWaInput]=useState("");
   // Init notifications بعد ما Firebase يتجهز
   React.useEffect(()=>{
@@ -3071,9 +3117,19 @@ function App(){
   React.useEffect(()=>{
     var fb=window.__fb;if(!fb||!fb.auth)return;
     var unsub=fb.onAuthStateChanged(fb.auth,function(u){
+      var wasLoggedIn=!!window.__currentUser;
       setUser(u);
       window.__currentUser=u||null;
       if(u){
+        // Welcome toast - only on fresh login not on page reload
+        if(!wasLoggedIn){
+          var firstName=(u.displayName||"").split(" ")[0]||"";
+          var hour=new Date().getHours();
+          var greeting=hour<12?"صباح الخير":"مساء الخير";
+          setTimeout(function(){
+            msg(greeting+(firstName?" يا "+firstName:"")+" 👋");
+          },600);
+        }
         // FCM token
         if(Notification.permission==="granted")registerFCMToken();
         // load user data from Firestore
@@ -3241,7 +3297,7 @@ function App(){
           try{
             await fb.setDoc(fb.doc(fb.db,"accounts",matched.id),updated);
             msg(isDup?"✅ تم تحديث الإجابة في "+matched.name+"!":"✅ تم حفظ الإجابة في تدريب "+matched.name+"!");
-          }catch(e){alert(e.message);}
+          }catch(e){msg("❌ "+e.message);}
         }}/>
       )}
 
@@ -3250,8 +3306,16 @@ function App(){
         <TrainPage accs={accs} onSave={saveTrainedQA} onClose={()=>setShowTrain(false)}/>
       )}
 
+      {/* ── UPDATE BANNER ── */}
+      {showUpdateBanner&&(
+        <div style={{position:"fixed",top:0,left:0,right:0,zIndex:999,background:"#1a1a0a",borderBottom:"1px solid rgba(212,165,116,.35)",padding:".65rem 1rem",display:"flex",alignItems:"center",justifyContent:"space-between",gap:".8rem",animation:"slideUp .2s ease"}}>
+          <span style={{fontSize:".78rem",color:"var(--text)",fontFamily:"'Cairo',sans-serif"}}>🔄 في تحديث جديد متاح!</span>
+          <button onClick={()=>window.location.reload()} style={{padding:".3rem .85rem",borderRadius:6,border:"none",background:"var(--hl)",color:"#0a0a0a",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".75rem",cursor:"pointer",flexShrink:0}}>تحديث الآن</button>
+        </div>
+      )}
+
       {/* ── TOAST ── */}
-      {toast&&<div style={{position:"fixed",bottom:22,left:"50%",transform:"translateX(-50%)",background:"var(--hl)",color:"#0a0a0a",padding:".42rem 1.4rem",borderRadius:20,fontWeight:700,zIndex:999,fontSize:".78rem",whiteSpace:"nowrap",boxShadow:"0 4px 22px rgba(212,165,116,.4)",animation:"slideUp .2s ease"}}>{toast}</div>}
+      {toast&&<div style={{position:"fixed",top:showUpdateBanner?52:16,left:"50%",transform:"translateX(-50%)",background:"var(--hl)",color:"#0a0a0a",padding:".45rem 1.4rem",borderRadius:20,fontWeight:700,zIndex:998,fontSize:".78rem",whiteSpace:"nowrap",boxShadow:"0 4px 22px rgba(212,165,116,.4)",animation:"slideUp .2s ease",paddingTop:"calc(.45rem + var(--safe-top))"}}>{toast}</div>}
 
       {/* ── UNDO TOAST ── */}
       {undoData&&<div className="undo-toast"><span>🗑️ سيُحذف بعد 5 ثوان</span><button onClick={undoDelete} style={{background:"var(--hl)",color:"#0a0a0a",border:"none",borderRadius:4,padding:".22rem .65rem",fontWeight:700,fontFamily:"'Cairo',sans-serif",fontSize:".78rem",minHeight:32}}>↩️ Undo</button></div>}
@@ -3309,7 +3373,8 @@ function App(){
                 placeholder="01XXXXXXXXX"
                 value={waInput}
                 onChange={e=>setWaInput(e.target.value.replace(/[^0-9+]/g,""))}
-                style={{...S.inp,paddingRight:"2.8rem",textAlign:"right",letterSpacing:".05em",marginBottom:0,direction:"ltr"}}
+                style={{...S.inp,paddingRight:"2.8rem",textAlign:"right",letterSpacing:".05em",marginBottom:0,direction:"ltr",fontSize:"1rem"}}
+              inputMode="tel"
                 autoFocus
               />
             </div>
@@ -3370,6 +3435,7 @@ function App(){
         </div>
         <div style={{display:"flex",gap:".3rem",alignItems:"center"}}>
           {urgentCount>0&&<span style={{background:"rgba(251,191,36,.1)",border:"1px solid rgba(251,191,36,.28)",color:"#fbbf24",fontSize:".58rem",fontWeight:700,padding:".08rem .42rem",borderRadius:4}}>⚠️ {urgentCount}</span>}
+          {installPrompt&&<button className="bh" onClick={async()=>{installPrompt.prompt();var r=await installPrompt.userChoice;if(r.outcome==="accepted")setInstallPrompt(null);}} style={{...NB(false),fontSize:".68rem"}}>📲</button>}
           <button className="bh" onClick={()=>setView("landing")} style={NB(false)}>🏠</button>
           <button className="bh" onClick={()=>setView("pub")} style={NB(view==="pub")}>🌐</button>
           {admin?<button className="bh" onClick={()=>setView("admin")} style={NB(view==="admin")}>🛠️</button>:<button className="bh" onClick={()=>setView("login")} style={NB(false)}>🔐</button>}
@@ -3415,7 +3481,7 @@ function App(){
               <img src={LOGO} style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}} alt=""/>
             </div>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1.3rem",marginBottom:".3rem"}}>أهلاً بك</div>
-            <div style={{fontSize:".78rem",color:"var(--dim)",marginBottom:"1.8rem",lineHeight:1.6}}>سجّل دخول بـ Google عشان تحفظ مفضلتك وتستقبل الإشعارات</div>
+            <div style={{fontSize:".78rem",color:"var(--dim)",marginBottom:"1.8rem",lineHeight:1.6}}>سجّل دخول بـ Google عشان تحفظ مفضلتك وتستقبل الإشعارات{/iPhone|iPad/.test(navigator.userAgent)&&<div style={{fontSize:".68rem",color:"#fbbf24",marginTop:".5rem",padding:".4rem .7rem",background:"rgba(251,191,36,.06)",border:"1px solid rgba(251,191,36,.18)",borderRadius:6}}>📱 على iOS: افتح من Safari وأضفه للشاشة الرئيسية للإشعارات</div>}</div>
             <button onClick={googleLogin} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:".75rem",padding:".85rem 1rem",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.05)",color:"var(--text)",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".92rem",cursor:"pointer",marginBottom:".75rem",minHeight:52}}>
               <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
               متابعة بـ Google
@@ -3527,7 +3593,7 @@ function App(){
               {accs.some(a=>a.pinned)&&<button onClick={()=>setFilterPinned(!filterPinned)} style={{padding:".28rem .85rem",borderRadius:22,border:`1px solid ${filterPinned?"var(--hl)":"var(--border)"}`,fontWeight:600,fontSize:".75rem",fontFamily:"'Cairo',sans-serif",background:filterPinned?"rgba(212,165,116,.1)":"transparent",color:filterPinned?"var(--hl)":"var(--dim)",transition:"all .18s",minHeight:38}}>📌 المثبتة</button>}
             </div>
             {load?<SkeletonCards/>:fAccs.length===0?<div style={{textAlign:"center",color:"var(--dim)",padding:"3rem"}}>🔍 لا توجد نتائج</div>:
-              <div className="grid-cards" style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:"1rem"}}>
+              <div className="grid-cards" style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(280px,100%),1fr))",gap:"1rem"}}>
                 {fAccs.map(a=><AccCard key={a.id} a={a} onClick={()=>openProfile(a)} onShare={shareAcc} onTagClick={t=>{setSearch(t);setPtab('accs');}}/>)}
               </div>}
           </>}
@@ -3935,13 +4001,16 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 <div id="ptr"><span class="ptr-spin">↻</span> جاري التحديث...</div>
 
 <script>
-// Splash
+// Splash — show only first time, skip on reload
 window.__hideSplash=function(){
   var s=document.getElementById('splash');
   if(s)s.classList.add('hidden');
 };
 window.addEventListener('load',function(){
-  setTimeout(window.__hideSplash,2500);
+  // If already visited this session, hide faster
+  var fast=sessionStorage.getItem('rb_visited');
+  sessionStorage.setItem('rb_visited','1');
+  setTimeout(window.__hideSplash, fast?800:2200);
 });
 // Offline
 function updateOnline(){
