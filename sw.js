@@ -1,4 +1,3 @@
-// ── Firebase (FCM only) ──
 importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js');
 
@@ -14,7 +13,7 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 const LOGO = "https://res.cloudinary.com/diepkkeyu/image/upload/v1773517119/404042723_763352762472137_4889753537613967821_n_p3hhjh.jpg";
 
-// ── Background FCM messages ──
+// FCM Background messages
 messaging.onBackgroundMessage(function(payload) {
   const { title, body } = payload.notification || {};
   return self.registration.showNotification(title || 'Rebranding 🔔', {
@@ -29,13 +28,17 @@ messaging.onBackgroundMessage(function(payload) {
   });
 });
 
-// ── Install & Activate — NO CACHING ──
+// Install - skip waiting immediately, delete ALL caches
 self.addEventListener('install', e => {
-  self.skipWaiting();
+  e.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      .then(() => self.skipWaiting())
+  );
 });
 
+// Activate - delete ALL caches, claim clients
 self.addEventListener('activate', e => {
-  // Delete ALL old caches
   e.waitUntil(
     caches.keys()
       .then(keys => Promise.all(keys.map(k => caches.delete(k))))
@@ -43,14 +46,10 @@ self.addEventListener('activate', e => {
   );
 });
 
-// ── Fetch — pass everything through, no caching ──
-// We only intercept to avoid breaking FCM
-self.addEventListener('fetch', e => {
-  // Let everything pass through naturally
-  return;
-});
+// Fetch - pass through everything, NO caching at all
+self.addEventListener('fetch', () => {});
 
-// ── Notification click ──
+// Notification click
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   e.waitUntil(
