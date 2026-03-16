@@ -13,21 +13,14 @@
 <meta name="description" content="Rebranding Data Mod — لوحة تحكم"/>
 <script>
 if('serviceWorker' in navigator){
-  window.addEventListener('load', function(){
-    // Clear ALL caches on every load to prevent stale content
-    if('caches' in window){
-      caches.keys().then(function(keys){
-        keys.forEach(function(k){ caches.delete(k); });
-      });
-    }
-    // Register SW
-    navigator.serviceWorker.register('sw.js')
-      .then(function(reg){
-        // Force update check
-        reg.update();
-      })
-      .catch(function(e){ console.log('SW:', e.message); });
-  });
+  // Clear ALL old caches immediately
+  if('caches' in window){
+    caches.keys().then(function(keys){
+      keys.forEach(function(k){ caches.delete(k); });
+    });
+  }
+  // Register SW for FCM only (no caching)
+  navigator.serviceWorker.register('sw.js').catch(function(){});
 }
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -2126,6 +2119,166 @@ function TrainPage({accs,onSave,onClose}){
 }
 
 
+function SwitchAccounts({user,onSwitch,onViewChange}){
+  const fb=window.__fb;
+  // savedAccounts: [{uid, displayName, email, photoURL, isAdmin, adminPw}]
+  const[saved,setSaved]=useState(()=>{
+    try{return JSON.parse(localStorage.getItem("rb_saved_accounts")||"[]");}
+    catch(e){return[];}
+  });
+  const[switching,setSwitching]=useState(false);
+
+  // Save current account when logged in
+  React.useEffect(function(){
+    if(!user)return;
+    var current={
+      uid:user.uid,
+      displayName:user.displayName||"",
+      email:user.email||"",
+      photoURL:user.photoURL||"",
+      isAdmin:false,
+      type:"google"
+    };
+    setSaved(function(prev){
+      var exists=prev.find(function(a){return a.uid===user.uid;});
+      var next=exists?prev.map(function(a){return a.uid===user.uid?current:a;}):[...prev,current];
+      // Max 5 accounts
+      if(next.length>5)next=next.slice(-5);
+      try{localStorage.setItem("rb_saved_accounts",JSON.stringify(next));}catch(e){}
+      return next;
+    });
+  },[user]);
+
+  // Save admin account
+  React.useEffect(function(){
+    var pw=null;
+    try{pw=localStorage.getItem("rb_admin_pw");}catch(e){}
+    if(!pw)return;
+    var adminAcc={
+      uid:"__admin__",
+      displayName:"الأدمن",
+      email:"admin",
+      photoURL:"",
+      isAdmin:true,
+      adminPw:pw,
+      type:"admin"
+    };
+    setSaved(function(prev){
+      var exists=prev.find(function(a){return a.uid==="__admin__";});
+      if(exists)return prev;
+      var next=[...prev,adminAcc];
+      try{localStorage.setItem("rb_saved_accounts",JSON.stringify(next));}catch(e){}
+      return next;
+    });
+  },[]);
+
+  async function switchTo(acc){
+    if(switching)return;
+    setSwitching(true);
+    try{
+      if(acc.type==="admin"){
+        // Switch to admin: sign out Google if needed, then verify admin pw
+        if(user){
+          await fb.signOut(fb.auth);
+        }
+        // Restore admin session
+        var fb2=window.__fb;
+        var doc=await fb2.getDoc(fb2.doc(fb2.db,"settings","admin"));
+        var correctPw=doc.exists()&&doc.data().password?doc.data().password:"fares2388";
+        if(acc.adminPw===correctPw||acc.adminPw===correctPw){
+          try{localStorage.setItem("rb_admin_pw",acc.adminPw);}catch(e){}
+          window.location.reload();
+        } else {
+          msg("❌ انتهت صلاحية جلسة الأدمن");
+          setSaved(function(prev){
+            var next=prev.filter(function(a){return a.uid!=="__admin__";});
+            try{localStorage.setItem("rb_saved_accounts",JSON.stringify(next));}catch(e){}
+            return next;
+          });
+        }
+      } else {
+        // Switch to Google account
+        if(user&&user.uid===acc.uid){
+          msg("أنت بالفعل في هذا الأكونت");
+          setSwitching(false);
+          return;
+        }
+        // Sign out current, then sign in with popup
+        if(user) await fb.signOut(fb.auth);
+        try{localStorage.removeItem("rb_admin_pw");}catch(e){}
+        await fb.signInWithPopup(fb.auth,fb.googleProvider);
+      }
+    }catch(e){
+      msg("❌ "+e.message);
+    }
+    setSwitching(false);
+  }
+
+  function removeAccount(uid,e){
+    e.stopPropagation();
+    setSaved(function(prev){
+      var next=prev.filter(function(a){return a.uid!==uid;});
+      try{localStorage.setItem("rb_saved_accounts",JSON.stringify(next));}catch(e){}
+      return next;
+    });
+  }
+
+  // Only show if there are OTHER accounts to switch to
+  var others=saved.filter(function(a){
+    if(user&&a.uid===user.uid)return false;
+    return true;
+  });
+
+  if(others.length===0&&saved.length<=1)return null;
+
+  return(
+    <div style={{marginBottom:".75rem"}}>
+      <div style={{fontSize:".65rem",color:"var(--dim)",letterSpacing:".1em",textTransform:"uppercase",marginBottom:".5rem",paddingRight:".2rem"}}>تبديل الأكونت</div>
+      <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,overflow:"hidden"}}>
+        {/* Current account */}
+        {user&&(
+          <div style={{padding:".75rem 1.1rem",display:"flex",alignItems:"center",gap:".75rem",borderBottom:others.length>0?"1px solid var(--border)":"none",background:"rgba(212,165,116,.04)"}}>
+            <div style={{width:36,height:36,borderRadius:"50%",overflow:"hidden",border:"1.5px solid rgba(212,165,116,.4)",flexShrink:0}}>
+              {user.photoURL?<img src={user.photoURL} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
+              :<div style={{width:"100%",height:"100%",background:"rgba(212,165,116,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:".85rem"}}>👤</div>}
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:600,fontSize:".85rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.displayName||user.email}</div>
+              <div style={{fontSize:".65rem",color:"#4ade80"}}>✓ الأكونت الحالي</div>
+            </div>
+          </div>
+        )}
+        {/* Other saved accounts */}
+        {others.map(function(acc,i){return(
+          <div key={acc.uid} onClick={()=>switchTo(acc)} style={{padding:".75rem 1.1rem",display:"flex",alignItems:"center",gap:".75rem",borderBottom:i<others.length-1?"1px solid var(--border)":"none",cursor:"pointer",transition:"background .15s"}}
+            onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,.04)";}}
+            onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
+            <div style={{width:36,height:36,borderRadius:"50%",overflow:"hidden",border:"1.5px solid var(--border)",flexShrink:0}}>
+              {acc.photoURL?<img src={acc.photoURL} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
+              :<div style={{width:"100%",height:"100%",background:"rgba(255,255,255,.06)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1rem"}}>{acc.isAdmin?"🔐":"👤"}</div>}
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:600,fontSize:".85rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{acc.displayName||acc.email}</div>
+              <div style={{fontSize:".65rem",color:"var(--dim)"}}>{acc.isAdmin?"أدمن":"تبديل للأكونت ده"}</div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:".4rem",flexShrink:0}}>
+              {switching?<span style={{fontSize:".7rem",color:"var(--dim)"}}>⏳</span>:<span style={{fontSize:".85rem",color:"var(--dim)"}}>⇄</span>}
+              <button onClick={e=>removeAccount(acc.uid,e)} style={{background:"none",border:"none",color:"rgba(239,68,68,.4)",fontSize:".8rem",cursor:"pointer",padding:".2rem .3rem",lineHeight:1}}>✕</button>
+            </div>
+          </div>
+        );})}
+        {/* Add account */}
+        <div onClick={()=>onViewChange("login")} style={{padding:".65rem 1.1rem",display:"flex",alignItems:"center",gap:".75rem",cursor:"pointer",borderTop:"1px solid var(--border)",transition:"background .15s"}}
+          onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,.03)";}}
+          onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
+          <div style={{width:36,height:36,borderRadius:"50%",border:"1.5px dashed rgba(255,255,255,.15)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--dim)",fontSize:"1.1rem"}}>+</div>
+          <div style={{fontSize:".85rem",color:"var(--dim)",fontWeight:600}}>إضافة أكونت</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProfilePage({user,favorites,accs,theme,onTheme,onSignOut,onToggleFav,onViewChange}){
   const myFavAccs=accs.filter(a=>favorites.includes(a.id));
   const[notifStatus,setNotifStatus]=useState(
@@ -2247,8 +2400,11 @@ function ProfilePage({user,favorites,accs,theme,onTheme,onSignOut,onToggleFav,on
           </div>
         )}
 
+        {/* Switch Accounts */}
+        <SwitchAccounts user={user} onSwitch={onSignOut} onViewChange={onViewChange}/>
+
         {/* Sign in / Sign out */}
-        <div style={{marginTop:"1.5rem"}}>
+        <div style={{marginTop:".75rem"}}>
           {user?(
             <button onClick={onSignOut} style={{width:"100%",padding:".9rem",borderRadius:14,border:"1px solid rgba(239,68,68,.2)",background:"rgba(239,68,68,.04)",color:"#f87171",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".9rem",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:".5rem",transition:"all .18s"}}
               onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,.08)";}}
@@ -4291,22 +4447,7 @@ window.addEventListener('load',function(){
   var delay=seen?600:2200;
   setTimeout(function(){
     window.__hideSplash();
-    // If root is empty after 5s, force reload
-    setTimeout(function(){
-      var root=document.getElementById('root');
-      if(root&&root.innerHTML.trim()===''){
-        // Clear caches and reload
-        if('caches' in window){
-          caches.keys().then(function(keys){
-            Promise.all(keys.map(function(k){return caches.delete(k);})).then(function(){
-              window.location.reload(true);
-            });
-          });
-        } else {
-          window.location.reload(true);
-        }
-      }
-    },5000);
+
   },delay);
 });
 // Offline
