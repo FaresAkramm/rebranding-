@@ -1502,7 +1502,10 @@ window.saveUnansweredToFB=async function saveUnansweredToFB(q,accName,accId){
         q:q,accName:accName||"عام",accId:accId||"",a:"",createdAt:new Date().toISOString()
       });
       // Notify Admin - Local notification
-      window.showLocalNotif("❓ سؤال جديد!","من: "+(accName||"عام")+" — "+q.slice(0,60));
+      // Show local notif for admin only
+      if(window.__currentUser&&window.showLocalNotif){
+        window.showLocalNotif("❓ سؤال جديد!","من: "+(accName||"عام")+" — "+q.slice(0,60));
+      }
       // Notify Telegram with accId embedded
       var text="❓ سؤال جديد بدون إجابة\n\nالأكونت: "+(accName||"عام")+"\nالسؤال: "+q+"\n\nارد على الرسالة دي مباشرة وهيتحفظ تلقائي ✅\n[ID:"+id+"][AID:"+(accId||"")+"]";
       fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{
@@ -2144,6 +2147,71 @@ function TrainPage({accs,onSave,onClose}){
 }
 
 
+function WAField({user}){
+  const fb=window.__fb;
+  const[wa,setWa]=useState("");
+  const[editing,setEditing]=useState(false);
+  const[saving,setSaving]=useState(false);
+
+  React.useEffect(function(){
+    if(!fb||!user)return;
+    fb.getDoc(fb.doc(fb.db,"user_data",user.uid)).then(function(d){
+      if(d.exists()&&d.data().whatsapp)setWa(d.data().whatsapp);
+    }).catch(function(){});
+  },[user?.uid]);
+
+  async function save(){
+    if(!wa.trim()){return;}
+    setSaving(true);
+    try{
+      var num=wa.trim().replace(/^0/,"20").replace(/[^0-9]/g,"");
+      await fb.setDoc(fb.doc(fb.db,"user_data",user.uid),{whatsapp:num},{merge:true});
+      setWa(num);
+      setEditing(false);
+      if(typeof msg==="function")msg("✅ تم حفظ رقم الواتساب");
+    }catch(e){}
+    setSaving(false);
+  }
+
+  return(
+    <div style={{marginBottom:".75rem"}}>
+      <div style={{fontSize:".65rem",color:"var(--dim)",letterSpacing:".1em",textTransform:"uppercase",marginBottom:".5rem",paddingRight:".2rem"}}>الواتساب</div>
+      <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,padding:".85rem 1.1rem",display:"flex",alignItems:"center",gap:".75rem"}}>
+        <span style={{fontSize:"1.2rem",flexShrink:0}}>📱</span>
+        <div style={{flex:1,minWidth:0}}>
+          {editing?(
+            <input
+              type="tel"
+              value={wa}
+              onChange={e=>setWa(e.target.value.replace(/[^0-9+]/g,""))}
+              placeholder="01XXXXXXXXX"
+              autoFocus
+              onKeyDown={e=>{if(e.key==="Enter")save();if(e.key==="Escape")setEditing(false);}}
+              style={{width:"100%",background:"transparent",border:"none",borderBottom:"1px solid rgba(212,165,116,.4)",color:"var(--text)",fontFamily:"'Cairo',sans-serif",fontSize:".9rem",outline:"none",paddingBottom:".2rem",direction:"ltr"}}
+            />
+          ):(
+            <div style={{fontSize:".88rem",fontWeight:600,color:wa?"var(--text)":"var(--dim)"}}>
+              {wa||"لم يتم إضافة رقم بعد"}
+            </div>
+          )}
+        </div>
+        {editing?(
+          <div style={{display:"flex",gap:".35rem",flexShrink:0}}>
+            <button onClick={save} disabled={saving} style={{padding:".3rem .7rem",borderRadius:8,border:"none",background:"var(--hl)",color:"#0a0a0a",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".75rem",cursor:"pointer"}}>
+              {saving?"...":"حفظ"}
+            </button>
+            <button onClick={()=>setEditing(false)} style={{padding:".3rem .7rem",borderRadius:8,border:"1px solid var(--border)",background:"transparent",color:"var(--dim)",fontFamily:"'Cairo',sans-serif",fontSize:".75rem",cursor:"pointer"}}>إلغاء</button>
+          </div>
+        ):(
+          <button onClick={()=>setEditing(true)} style={{flexShrink:0,background:"rgba(212,165,116,.08)",border:"1px solid rgba(212,165,116,.2)",color:"var(--hl)",padding:".3rem .7rem",borderRadius:8,fontFamily:"'Cairo',sans-serif",fontSize:".75rem",fontWeight:600,cursor:"pointer"}}>
+            {wa?"تعديل":"إضافة"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SwitchAccounts({user,onSwitch,onViewChange}){
   const fb=window.__fb;
   const[saved,setSaved]=useState(()=>{
@@ -2291,15 +2359,26 @@ function SwitchAccounts({user,onSwitch,onViewChange}){
           );
         })}
 
-        {/* Add account button */}
+        {/* Add Google account */}
         <div onClick={addAccount}
-          style={{padding:".75rem 1.1rem",display:"flex",alignItems:"center",gap:".75rem",cursor:"pointer",transition:"background .15s"}}
+          style={{padding:".75rem 1.1rem",display:"flex",alignItems:"center",gap:".75rem",cursor:"pointer",transition:"background .15s",borderBottom:"1px solid var(--border)"}}
           onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,.03)";}}
           onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
           <div style={{width:38,height:38,borderRadius:"50%",border:"1.5px dashed rgba(255,255,255,.18)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--dim)",fontSize:"1.2rem",fontWeight:300}}>+</div>
           <div>
-            <div style={{fontWeight:600,fontSize:".88rem",color:"var(--text)"}}>إضافة أكونت</div>
-            <div style={{fontSize:".65rem",color:"var(--dim)"}}>سجّل بـ Google أو الأدمن</div>
+            <div style={{fontWeight:600,fontSize:".88rem",color:"var(--text)"}}>إضافة أكونت Google</div>
+            <div style={{fontSize:".65rem",color:"var(--dim)"}}>سجّل بـ Google</div>
+          </div>
+        </div>
+        {/* Add Admin account */}
+        <div onClick={()=>onViewChange("admin_login")}
+          style={{padding:".75rem 1.1rem",display:"flex",alignItems:"center",gap:".75rem",cursor:"pointer",transition:"background .15s"}}
+          onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,.03)";}}
+          onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
+          <div style={{width:38,height:38,borderRadius:"50%",border:"1.5px dashed rgba(212,165,116,.3)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1rem"}}>🔐</div>
+          <div>
+            <div style={{fontWeight:600,fontSize:".88rem",color:"var(--hl)"}}>دخول كأدمن</div>
+            <div style={{fontSize:".65rem",color:"var(--dim)"}}>حط كلمة المرور</div>
           </div>
         </div>
       </div>
@@ -2373,6 +2452,9 @@ function ProfilePage({user,favorites,accs,theme,onTheme,onSignOut,onToggleFav,on
             </div>
           </div>
         </div>
+
+        {/* WhatsApp */}
+        {user&&<WAField user={user}/>}
 
         {/* Theme */}
         <div style={{marginBottom:".75rem"}}>
@@ -3553,17 +3635,11 @@ function App(){
               setFavorites(data.favs);
               try{localStorage.setItem("rb_favs",JSON.stringify(data.favs));}catch(e){}
             }
-            // if no whatsapp saved, show prompt
-            if(!data.whatsapp){
-              setTimeout(function(){setShowWAPrompt(true);},1500);
-            }
+            // whatsapp saved in profile now, no popup
           } else {
-            // new user - show WA prompt
-            setTimeout(function(){setShowWAPrompt(true);},1500);
+            // new user - no WA popup, user sets it in profile
           }
-        }).catch(function(){
-          setTimeout(function(){setShowWAPrompt(true);},1500);
-        });
+        }).catch(function(){});
         // register FCM token linked to user
         fb.setDoc(fb.doc(fb.db,"fcm_tokens",u.uid+"_web"),{
           uid:u.uid,email:u.email||"",displayName:u.displayName||"",
