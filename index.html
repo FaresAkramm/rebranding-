@@ -1258,31 +1258,31 @@ window.parseAndExecAction=async function parseAndExecAction(actionStr,accs,offs,
         image:"",link:"",expiryDate:parsed.expiryDate||"",
         badge:parsed.badge||"جديد",updatedAt:new Date().toISOString()
       });
-      onDone(true,"✅ تم إضافة العرض: "+parsed.title+" لـ "+acc.name);logActivity("add_offer","إضافة عرض: "+parsed.title,"الأكونت: "+acc.name);
+      onDone(true,"✅ تم إضافة العرض: "+parsed.title+" لـ "+acc.name);typeof window.logActivity==="function"&&window.logActivity("add_offer","إضافة عرض: "+parsed.title,"الأكونت: "+acc.name);
     }
     else if(t==="edit_offer"){
       var off=offs.find(function(o){return o.id===parsed.offerId;});
       if(!off){onDone(false,"مش لاقي العرض");return;}
       await fb.setDoc(fb.doc(fb.db,"offers",off.id),Object.assign({},off,parsed.changes||{},{ updatedAt:new Date().toISOString()}));
-      onDone(true,"✅ تم تعديل العرض: "+off.title);logActivity("edit_offer","تعديل عرض: "+off.title,"");
+      onDone(true,"✅ تم تعديل العرض: "+off.title);typeof window.logActivity==="function"&&window.logActivity("edit_offer","تعديل عرض: "+off.title,"");
     }
     else if(t==="delete_offer"){
       var off2=offs.find(function(o){return o.id===parsed.offerId;});
       await fb.deleteDoc(fb.doc(fb.db,"offers",parsed.offerId));
-      onDone(true,"🗑️ تم حذف العرض: "+(off2?off2.title:parsed.offerId));logActivity("delete_offer","حذف عرض: "+(off2?off2.title:""),"");
+      onDone(true,"🗑️ تم حذف العرض: "+(off2?off2.title:parsed.offerId));typeof window.logActivity==="function"&&window.logActivity("delete_offer","حذف عرض: "+(off2?off2.title:""),"");
     }
     else if(t==="edit_account"){
       var acc2=accs.find(function(a){return a.id===parsed.accountId;});
       if(!acc2){onDone(false,"مش لاقي الأكونت");return;}
       await fb.setDoc(fb.doc(fb.db,"accounts",acc2.id),Object.assign({},acc2,parsed.changes||{},{ updatedAt:new Date().toISOString()}));
-      onDone(true,"✅ تم تعديل بيانات "+acc2.name);logActivity("edit_account","تعديل أكونت: "+acc2.name,JSON.stringify(parsed.changes||{}).slice(0,80));
+      onDone(true,"✅ تم تعديل بيانات "+acc2.name);typeof window.logActivity==="function"&&window.logActivity("edit_account","تعديل أكونت: "+acc2.name,JSON.stringify(parsed.changes||{}).slice(0,80));
     }
     else if(t==="add_reply"){
       var acc3=accs.find(function(a){return a.id===parsed.accountId;});
       if(!acc3){onDone(false,"مش لاقي الأكونت");return;}
       var replies=(acc3.extraReplies||[]).concat([{label:parsed.label||"رد جديد",text:parsed.text||""}]);
       await fb.setDoc(fb.doc(fb.db,"accounts",acc3.id),Object.assign({},acc3,{extraReplies:replies,updatedAt:new Date().toISOString()}));
-      onDone(true,"✅ تم إضافة الرد: "+parsed.label+" لـ "+acc3.name);logActivity("add_reply","إضافة رد: "+parsed.label,"الأكونت: "+acc3.name);
+      onDone(true,"✅ تم إضافة الرد: "+parsed.label+" لـ "+acc3.name);typeof window.logActivity==="function"&&window.logActivity("add_reply","إضافة رد: "+parsed.label,"الأكونت: "+acc3.name);
     }
     else if(t==="change_status"){
       var acc4=accs.find(function(a){return a.id===parsed.accountId;});
@@ -1299,7 +1299,7 @@ window.parseAndExecAction=async function parseAndExecAction(actionStr,accs,offs,
         ? existing5.map(function(x){return x.q.trim()===parsed.question.trim()?{q:x.q,a:parsed.answer}:x;})
         : [...existing5,{q:parsed.question,a:parsed.answer}];
       var updated5=Object.assign({},acc5,{trainedQA:newQA5,updatedAt:new Date().toISOString()});
-      try{await fb.setDoc(fb.doc(fb.db,"accounts",acc5.id),updated5);onDone(true,"✅ تم إضافة المعلومة لـ "+acc5.name);logActivity("add_info","إضافة معلومة","الأكونت: "+acc5.name+" | السؤال: "+(parsed.question||"").slice(0,50));}
+      try{await fb.setDoc(fb.doc(fb.db,"accounts",acc5.id),updated5);onDone(true,"✅ تم إضافة المعلومة لـ "+acc5.name);typeof window.logActivity==="function"&&window.logActivity("add_info","إضافة معلومة","الأكونت: "+acc5.name+" | السؤال: "+(parsed.question||"").slice(0,50));}
       catch(e){onDone(false,"❌ "+e.message);}
     }
     else{onDone(false,"أكشن مش معروف: "+t);}
@@ -1721,7 +1721,7 @@ window.saveUnansweredToFB=async function saveUnansweredToFB(q,accName,accId){
       });
       setMsgs(function(p){return [...p,{r:"ai",t:"✅ تم إضافة العرض: "+data.title+" لـ "+acc.name}];});
       window.showLocalNotif("🎁 عرض جديد!","تم إضافة: "+data.title+" لـ "+acc.name);
-      logActivity("add_offer","إضافة عرض: "+data.title,"الأكونت: "+acc.name);
+      typeof window.logActivity==="function"&&window.logActivity("add_offer","إضافة عرض: "+data.title,"الأكونت: "+acc.name);
       setWizard(null);
     }
     else if(type==="delete_offer"){
@@ -3394,8 +3394,8 @@ function App(){
     setUndoData({type,id,data,timer});
   }
   async function undoDelete(){if(!undoData)return;clearTimeout(undoData.timer);try{const fb=window.__fb;await fb.setDoc(fb.doc(fb.db,undoData.type,undoData.id),undoData.data);msg("↩️ تم الاسترجاع");}catch(e){msg("❌ "+e.message);}setUndoData(null);}
-  function delAcc(id){const data=accs.find(a=>a.id===id);if(!data)return;if(!window.confirm("⚠️ هتحذف أكونت: "+data.name+"\nمتأكد؟"))return;scheduleDelete("accounts",id,data);logActivity("delete_account","حذف أكونت: "+data.name,"من السايت");}
-  function delOff(id){const data=offs.find(o=>o.id===id);if(!data)return;scheduleDelete("offers",id,data);logActivity("delete_offer","حذف عرض: "+data.title,"من السايت");}
+  function delAcc(id){const data=accs.find(a=>a.id===id);if(!data)return;if(!window.confirm("⚠️ هتحذف أكونت: "+data.name+"\nمتأكد؟"))return;scheduleDelete("accounts",id,data);typeof window.logActivity==="function"&&window.logActivity("delete_account","حذف أكونت: "+data.name,"من السايت");}
+  function delOff(id){const data=offs.find(o=>o.id===id);if(!data)return;scheduleDelete("offers",id,data);typeof window.logActivity==="function"&&window.logActivity("delete_offer","حذف عرض: "+data.title,"من السايت");}
 
   /* ── Renew offer (extend 30 days from now) ── */
   async function doRenewOffer(oId){
@@ -3454,11 +3454,14 @@ function App(){
     try{
       await fb.setDoc(fb.doc(fb.db,"accounts",id),{...af,tags:af.tags.split(",").map(t=>t.trim()).filter(Boolean),links:lnks.filter(l=>l.label&&l.url),updatedAt:new Date().toISOString()});
       msg("✅ تم الحفظ");setShowAF(false);
-      if(isNew){window.showLocalNotif("👤 أكونت جديد!","تم إضافة: "+af.name);logActivity("add_account","إضافة أكونت: "+af.name,"من السايت");sendPushToAll("👤 أكونت جديد — "+af.name,"انضم لـ Rebranding Data Mod ✨",id);}
-      else{
-        window.showLocalNotif("✏️ تم التعديل","تم تعديل أكونت: "+af.name);
-        logActivity("edit_account","تعديل أكونت: "+af.name,"من السايت");
-        sendPushToAll("✏️ تم تعديل أكونت — "+af.name,"تم تحديث البيانات",id);
+      if(isNew){
+        if(typeof window.showLocalNotif==="function")window.showLocalNotif("👤 أكونت جديد!","تم إضافة: "+af.name);
+        if(typeof window.logActivity==="function")window.logActivity("add_account","إضافة أكونت: "+af.name,"من السايت");
+        if(typeof window.sendPushToAll==="function")window.sendPushToAll("👤 أكونت جديد — "+af.name,"انضم لـ Rebranding Data Mod ✨",id);
+      } else {
+        if(typeof window.showLocalNotif==="function")window.showLocalNotif("✏️ تم التعديل","تم تعديل أكونت: "+af.name);
+        if(typeof window.logActivity==="function")window.logActivity("edit_account","تعديل أكونت: "+af.name,"من السايت");
+        if(typeof window.sendPushToAll==="function")window.sendPushToAll("✏️ تم تعديل أكونت — "+af.name,"تم تحديث البيانات",id);
       }
     }
     catch(e){msg("❌ "+e.message);}setBusy(false);
@@ -3495,11 +3498,14 @@ function App(){
     try{
       await fb.setDoc(fb.doc(fb.db,"offers",id),{...of,updatedAt:new Date().toISOString()});
       msg("✅ تم الحفظ");setShowOF(false);
-      if(isNew){window.showLocalNotif("🎁 عرض جديد!","تم إضافة: "+of.title+(accName?" لـ "+accName:""));logActivity("add_offer","إضافة عرض: "+of.title,"الأكونت: "+accName);sendPushToAll("🎁 عرض جديد — "+(accName||"Rebranding"),of.title+(of.expiryDate?" · ينتهي "+of.expiryDate:""),of.accountId);}
-      else{
-        window.showLocalNotif("✏️ تم التعديل","تم تعديل عرض: "+of.title);
-        logActivity("edit_offer","تعديل عرض: "+of.title,"من السايت");
-        sendPushToAll("✏️ تم تحديث عرض — "+(accs.find(a=>a.id===of.accountId)?.name||"Rebranding"),of.title,of.accountId);
+      if(isNew){
+        if(typeof window.showLocalNotif==="function")window.showLocalNotif("🎁 عرض جديد!","تم إضافة: "+of.title+(accName?" لـ "+accName:""));
+        if(typeof window.logActivity==="function")window.logActivity("add_offer","إضافة عرض: "+of.title,"الأكونت: "+accName);
+        if(typeof window.sendPushToAll==="function")window.sendPushToAll("🎁 عرض جديد — "+(accName||"Rebranding"),of.title+(of.expiryDate?" · ينتهي "+of.expiryDate:""),of.accountId);
+      } else {
+        if(typeof window.showLocalNotif==="function")window.showLocalNotif("✏️ تم التعديل","تم تعديل عرض: "+of.title);
+        if(typeof window.logActivity==="function")window.logActivity("edit_offer","تعديل عرض: "+of.title,"من السايت");
+        if(typeof window.sendPushToAll==="function")window.sendPushToAll("✏️ تم تحديث عرض — "+(accs.find(a=>a.id===of.accountId)?.name||"Rebranding"),of.title,of.accountId);
       }
     }
     catch(e){msg("❌ "+e.message);}setBusy(false);
@@ -3594,7 +3600,7 @@ function App(){
         var key="rb_exp_notif_"+o.id+"_"+dl;
         if(!localStorage.getItem(key)){
           localStorage.setItem(key,"1");
-          sendPushToAll(
+          if(typeof window.sendPushToAll==="function")window.sendPushToAll(
             dl===1?"🔴 ينتهي غداً — "+o.title:"⚠️ ينتهي خلال 3 أيام — "+o.title,
             "لا تفوتك الفرصة! 🔥"
           );
@@ -3616,8 +3622,8 @@ function App(){
         // Welcome toast + redirect - only on fresh login
         if(!wasLoggedIn){
           var firstName=(u.displayName||"").split(" ")[0]||"";
-          var hour=new Date().getHours();
-          var greeting=hour<12?"صباح الخير":"مساء الخير";
+          var hour=new Date(Date.now()+2*60*60*1000).getUTCHours();
+          var greeting=hour>=6&&hour<12?"صباح الخير":hour>=12&&hour<18?"مساء الخير":hour>=18?"مساء النور":"أهلاً";
           setTimeout(function(){
             msg(greeting+(firstName?" يا "+firstName:"")+" 👋");
           },600);
