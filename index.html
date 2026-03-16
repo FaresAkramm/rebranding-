@@ -13,8 +13,20 @@
 <meta name="description" content="Rebranding Data Mod — لوحة تحكم"/>
 <script>
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('sw.js').then(r=>console.log('SW ok')).catch(e=>console.log('SW:',e.message));
+  window.addEventListener('load', function(){
+    // Clear ALL caches on every load to prevent stale content
+    if('caches' in window){
+      caches.keys().then(function(keys){
+        keys.forEach(function(k){ caches.delete(k); });
+      });
+    }
+    // Register SW
+    navigator.serviceWorker.register('sw.js')
+      .then(function(reg){
+        // Force update check
+        reg.update();
+      })
+      .catch(function(e){ console.log('SW:', e.message); });
   });
 }
 </script>
@@ -4279,13 +4291,22 @@ window.addEventListener('load',function(){
   var delay=seen?600:2200;
   setTimeout(function(){
     window.__hideSplash();
-    // If root is empty after hiding splash, show error message
+    // If root is empty after 5s, force reload
     setTimeout(function(){
       var root=document.getElementById('root');
       if(root&&root.innerHTML.trim()===''){
-        root.innerHTML='<div style="color:#d4a574;text-align:center;padding:3rem;font-family:Cairo,sans-serif"><div style="font-size:2rem;margin-bottom:1rem">⚠️</div><div>حدث خطأ في التحميل</div><button onclick="location.reload()" style="margin-top:1rem;padding:.5rem 1.5rem;background:#d4a574;color:#000;border:none;border-radius:8px;font-family:Cairo,sans-serif;font-size:1rem;cursor:pointer">إعادة المحاولة</button></div>';
+        // Clear caches and reload
+        if('caches' in window){
+          caches.keys().then(function(keys){
+            Promise.all(keys.map(function(k){return caches.delete(k);})).then(function(){
+              window.location.reload(true);
+            });
+          });
+        } else {
+          window.location.reload(true);
+        }
       }
-    },3000);
+    },5000);
   },delay);
 });
 // Offline
