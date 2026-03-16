@@ -3575,16 +3575,9 @@ function App(){
       return;
     }
     if(Notification.permission==="default"){
-      // انتظر ثانيتين بعد الـ login عشان مش تطلع في وشه فوراً
-      const t=setTimeout(async function(){
-        try{
-          const perm=await Notification.requestPermission();
-          if(perm==="granted"){
-            typeof window.registerFCMToken==="function"&&await window.registerFCMToken();
-            if(window.listenToNotifications)window.listenToNotifications();
-            msg("🔔 تم تفعيل الإشعارات!");
-          }
-        }catch(e){}
+      // Show notification prompt after 2 seconds
+      const t=setTimeout(function(){
+        setShowNotifPrompt(true);
       },2000);
       return()=>clearTimeout(t);
     }
