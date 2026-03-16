@@ -3395,8 +3395,11 @@ function App(){
   async function googleLogin(){
     try{
       var fb=window.__fb;if(!fb)return;
+      // Clear admin state - Google login = regular user
+      setAdmin(false);
+      try{localStorage.removeItem("rb_admin_pw");}catch(e){}
       await fb.signInWithPopup(fb.auth,fb.googleProvider);
-      setView("pub"); // go to main page after login
+      setView("pub");
     }catch(e){msg("❌ فشل تسجيل الدخول: "+e.message);}
   }
 
@@ -3407,7 +3410,12 @@ function App(){
       setUser(null);
       window.__currentUser=null;
       setAdmin(false);
-      try{localStorage.removeItem("rb_admin_pw");}catch(e){}
+      // Clear ALL saved auth state
+      try{
+        localStorage.removeItem("rb_admin_pw");
+        localStorage.removeItem("rb_favs");
+      }catch(e){}
+      setFavorites([]);
       setView("landing");
       msg("👋 تم تسجيل الخروج");
     }catch(e){msg("❌ "+e.message);}
@@ -3425,11 +3433,15 @@ function App(){
         if(saved===ADMIN_DEFAULT){setAdmin(true);if(view==="login"||view==="admin_login")setView("admin");}
         return;
       }
+      // Only restore admin if no Google user is logged in
+      if(window.__currentUser){
+        try{localStorage.removeItem("rb_admin_pw");}catch(e){}
+        return;
+      }
       fb.getDoc(fb.doc(fb.db,"settings","admin")).then(function(doc){
         const correctPw=doc.exists()&&doc.data().password?doc.data().password:ADMIN_DEFAULT;
         if(saved===correctPw){setAdmin(true);if(view==="login"||view==="admin_login")setView("admin");}
-        else{try{localStorage.removeItem("rb_admin_pw");}catch(e){}}
-      }).catch(function(){
+        else{try{localStorage.removeItem("rb_admin_pw");}catch(e){}}      }).catch(function(){
         if(saved===ADMIN_DEFAULT){setAdmin(true);}
       });
     }catch(e){}
