@@ -4412,33 +4412,18 @@ function App(){
   );
 }
 
-// Expose App to window for rendering
-window.__App=App;
-</script>
-<script>
-// This runs AFTER babel compiles App, and waits for Firebase
-function __startReact(){
-  if(window.__App && document.getElementById('root')){
-    ReactDOM.createRoot(document.getElementById('root')).render(
-      React.createElement(window.__App)
-    );
-  }
+// Render React - Firebase is guaranteed ready before babel runs
+// because Firebase is a sync module that fires fbReady before DOMContentLoaded
+var __root = ReactDOM.createRoot(document.getElementById('root'));
+
+function __doRender(){
+  __root.render(React.createElement(App));
 }
 
 if(window.__fbReady){
-  __startReact();
+  __doRender();
 } else {
-  window.addEventListener('fbReady', __startReact, {once:true});
-  // Fallback after 8s
-  setTimeout(function(){
-    if(!window.__fbReady){
-      var r=document.getElementById('root');
-      if(r&&r.innerHTML.trim()===''){
-        r.innerHTML='<div style="color:#d4a574;text-align:center;padding:3rem;font-family:Cairo,sans-serif"><div style="font-size:2rem;margin-bottom:1rem">⚠️</div><div>تعذّر الاتصال بالإنترنت</div><button onclick="location.reload()" style="margin-top:1rem;padding:.6rem 1.5rem;background:#d4a574;color:#000;border:none;border-radius:8px;font-family:Cairo,sans-serif;font-size:.9rem;cursor:pointer">إعادة المحاولة</button></div>';
-        window.__hideSplash&&window.__hideSplash();
-      }
-    }
-  }, 8000);
+  window.addEventListener('fbReady', __doRender, {once:true});
 }
 </script>
 <!-- ══ Splash Screen ══ -->
