@@ -2121,14 +2121,13 @@ function TrainPage({accs,onSave,onClose}){
 
 function SwitchAccounts({user,onSwitch,onViewChange}){
   const fb=window.__fb;
-  // savedAccounts: [{uid, displayName, email, photoURL, isAdmin, adminPw}]
   const[saved,setSaved]=useState(()=>{
     try{return JSON.parse(localStorage.getItem("rb_saved_accounts")||"[]");}
     catch(e){return[];}
   });
-  const[switching,setSwitching]=useState(false);
+  const[switching,setSwitching]=useState(null); // uid being switched to
 
-  // Save current account when logged in
+  // Auto-save current Google account
   React.useEffect(function(){
     if(!user)return;
     var current={
@@ -2136,86 +2135,71 @@ function SwitchAccounts({user,onSwitch,onViewChange}){
       displayName:user.displayName||"",
       email:user.email||"",
       photoURL:user.photoURL||"",
-      isAdmin:false,
       type:"google"
     };
     setSaved(function(prev){
       var exists=prev.find(function(a){return a.uid===user.uid;});
-      var next=exists?prev.map(function(a){return a.uid===user.uid?current:a;}):[...prev,current];
-      // Max 5 accounts
-      if(next.length>5)next=next.slice(-5);
+      var next=exists
+        ?prev.map(function(a){return a.uid===user.uid?current:a;})
+        :[...prev.filter(function(a){return a.uid!==user.uid;}),current];
       try{localStorage.setItem("rb_saved_accounts",JSON.stringify(next));}catch(e){}
       return next;
     });
-  },[user]);
+  },[user?.uid]);
 
-  // Save admin account
+  // Auto-save admin account
   React.useEffect(function(){
     var pw=null;
     try{pw=localStorage.getItem("rb_admin_pw");}catch(e){}
     if(!pw)return;
-    var adminAcc={
-      uid:"__admin__",
-      displayName:"الأدمن",
-      email:"admin",
-      photoURL:"",
-      isAdmin:true,
-      adminPw:pw,
-      type:"admin"
-    };
     setSaved(function(prev){
       var exists=prev.find(function(a){return a.uid==="__admin__";});
       if(exists)return prev;
-      var next=[...prev,adminAcc];
+      var next=[...prev,{uid:"__admin__",displayName:"الأدمن",email:"",photoURL:"",type:"admin",adminPw:pw}];
       try{localStorage.setItem("rb_saved_accounts",JSON.stringify(next));}catch(e){}
       return next;
     });
   },[]);
 
+  async function addAccount(){
+    try{
+      // Sign out current user first
+      if(user) await fb.signOut(fb.auth);
+      try{localStorage.removeItem("rb_admin_pw");}catch(e){}
+      // Open Google popup to add new account
+      await fb.signInWithPopup(fb.auth,fb.googleProvider);
+    }catch(e){
+      msg("❌ "+e.message);
+    }
+  }
+
   async function switchTo(acc){
     if(switching)return;
-    setSwitching(true);
+    setSwitching(acc.uid);
     try{
       if(acc.type==="admin"){
-        // Switch to admin: sign out Google if needed, then verify admin pw
-        if(user){
-          await fb.signOut(fb.auth);
-        }
-        // Restore admin session
-        var fb2=window.__fb;
-        var doc=await fb2.getDoc(fb2.doc(fb2.db,"settings","admin"));
-        var correctPw=doc.exists()&&doc.data().password?doc.data().password:"fares2388";
-        if(acc.adminPw===correctPw||acc.adminPw===correctPw){
+        if(user) await fb.signOut(fb.auth);
+        var doc=await fb.getDoc(fb.doc(fb.db,"settings","admin"));
+        var correctPw=doc.exists()&&doc.data().password?doc.data().password:window.__ADMIN_DEFAULT||"fares2388";
+        if(acc.adminPw===correctPw){
           try{localStorage.setItem("rb_admin_pw",acc.adminPw);}catch(e){}
           window.location.reload();
         } else {
-          msg("❌ انتهت صلاحية جلسة الأدمن");
-          setSaved(function(prev){
-            var next=prev.filter(function(a){return a.uid!=="__admin__";});
-            try{localStorage.setItem("rb_saved_accounts",JSON.stringify(next));}catch(e){}
-            return next;
-          });
+          msg("❌ انتهت صلاحية جلسة الأدمن — ادخل الباسورد تاني");
+          removeAccount("__admin__");
         }
       } else {
-        // Switch to Google account
-        if(user&&user.uid===acc.uid){
-          msg("أنت بالفعل في هذا الأكونت");
-          setSwitching(false);
-          return;
-        }
-        // Sign out current, then sign in with popup
+        if(user&&user.uid===acc.uid){msg("أنت بالفعل في هذا الأكونت");setSwitching(null);return;}
         if(user) await fb.signOut(fb.auth);
         try{localStorage.removeItem("rb_admin_pw");}catch(e){}
         await fb.signInWithPopup(fb.auth,fb.googleProvider);
       }
-    }catch(e){
-      msg("❌ "+e.message);
-    }
-    setSwitching(false);
+    }catch(e){msg("❌ "+e.message);}
+    setSwitching(null);
   }
 
   function removeAccount(uid,e){
-    e.stopPropagation();
+    if(e)e.stopPropagation();
     setSaved(function(prev){
       var next=prev.filter(function(a){return a.uid!==uid;});
       try{localStorage.setItem("rb_saved_accounts",JSON.stringify(next));}catch(e){}
@@ -2223,61 +2207,81 @@ function SwitchAccounts({user,onSwitch,onViewChange}){
     });
   }
 
-  // Only show if there are OTHER accounts to switch to
-  var others=saved.filter(function(a){
-    if(user&&a.uid===user.uid)return false;
-    return true;
-  });
-
-  if(others.length===0&&saved.length<=1)return null;
+  var currentUid=user?user.uid:"";
+  var others=saved.filter(function(a){return a.uid!==currentUid;});
 
   return(
     <div style={{marginBottom:".75rem"}}>
-      <div style={{fontSize:".65rem",color:"var(--dim)",letterSpacing:".1em",textTransform:"uppercase",marginBottom:".5rem",paddingRight:".2rem"}}>تبديل الأكونت</div>
+      <div style={{fontSize:".65rem",color:"var(--dim)",letterSpacing:".1em",textTransform:"uppercase",marginBottom:".5rem",paddingRight:".2rem"}}>الأكونتات</div>
       <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,overflow:"hidden"}}>
+
         {/* Current account */}
         {user&&(
-          <div style={{padding:".75rem 1.1rem",display:"flex",alignItems:"center",gap:".75rem",borderBottom:others.length>0?"1px solid var(--border)":"none",background:"rgba(212,165,116,.04)"}}>
-            <div style={{width:36,height:36,borderRadius:"50%",overflow:"hidden",border:"1.5px solid rgba(212,165,116,.4)",flexShrink:0}}>
-              {user.photoURL?<img src={user.photoURL} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
-              :<div style={{width:"100%",height:"100%",background:"rgba(212,165,116,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:".85rem"}}>👤</div>}
+          <div style={{padding:".8rem 1.1rem",display:"flex",alignItems:"center",gap:".75rem",background:"rgba(212,165,116,.04)",borderBottom:others.length>0||true?"1px solid var(--border)":"none"}}>
+            <div style={{width:38,height:38,borderRadius:"50%",overflow:"hidden",border:"2px solid rgba(212,165,116,.4)",flexShrink:0}}>
+              {user.photoURL
+                ?<img src={user.photoURL} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
+                :<div style={{width:"100%",height:"100%",background:"rgba(212,165,116,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:".9rem"}}>👤</div>
+              }
             </div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontWeight:600,fontSize:".85rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.displayName||user.email}</div>
-              <div style={{fontSize:".65rem",color:"#4ade80"}}>✓ الأكونت الحالي</div>
+              <div style={{fontWeight:700,fontSize:".88rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.displayName||user.email}</div>
+              <div style={{fontSize:".65rem",color:"#4ade80",display:"flex",alignItems:"center",gap:".25rem"}}>
+                <span style={{width:6,height:6,borderRadius:"50%",background:"#4ade80",display:"inline-block"}}/>
+                الأكونت الحالي
+              </div>
             </div>
           </div>
         )}
-        {/* Other saved accounts */}
-        {others.map(function(acc,i){return(
-          <div key={acc.uid} onClick={()=>switchTo(acc)} style={{padding:".75rem 1.1rem",display:"flex",alignItems:"center",gap:".75rem",borderBottom:i<others.length-1?"1px solid var(--border)":"none",cursor:"pointer",transition:"background .15s"}}
-            onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,.04)";}}
-            onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
-            <div style={{width:36,height:36,borderRadius:"50%",overflow:"hidden",border:"1.5px solid var(--border)",flexShrink:0}}>
-              {acc.photoURL?<img src={acc.photoURL} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
-              :<div style={{width:"100%",height:"100%",background:"rgba(255,255,255,.06)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1rem"}}>{acc.isAdmin?"🔐":"👤"}</div>}
+
+        {/* Saved accounts */}
+        {others.map(function(acc,i){
+          var isLoading=switching===acc.uid;
+          return(
+            <div key={acc.uid} onClick={()=>switchTo(acc)}
+              style={{padding:".8rem 1.1rem",display:"flex",alignItems:"center",gap:".75rem",cursor:"pointer",borderBottom:"1px solid var(--border)",opacity:isLoading?.6:1,transition:"all .15s"}}
+              onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,.04)";}}
+              onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
+              <div style={{width:38,height:38,borderRadius:"50%",overflow:"hidden",border:"1.5px solid var(--border)",flexShrink:0}}>
+                {acc.photoURL
+                  ?<img src={acc.photoURL} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
+                  :<div style={{width:"100%",height:"100%",background:"rgba(255,255,255,.05)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1rem"}}>{acc.type==="admin"?"🔐":"👤"}</div>
+                }
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:600,fontSize:".88rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{acc.displayName||acc.email||"أكونت محفوظ"}</div>
+                <div style={{fontSize:".65rem",color:"var(--dim)"}}>{isLoading?"جاري التبديل...":acc.type==="admin"?"أدمن — اضغط للتبديل":"اضغط للتبديل"}</div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:".35rem",flexShrink:0}}>
+                {isLoading
+                  ?<div style={{width:18,height:18,borderRadius:"50%",border:"2px solid rgba(212,165,116,.3)",borderTop:"2px solid var(--hl)",animation:"spin .7s linear infinite"}}/>
+                  :<span style={{fontSize:"1rem",color:"var(--dim)"}}>⇄</span>
+                }
+                <button onClick={e=>{e.stopPropagation();removeAccount(acc.uid);}}
+                  style={{background:"none",border:"none",color:"rgba(239,68,68,.35)",fontSize:".85rem",cursor:"pointer",padding:".15rem .3rem",lineHeight:1,borderRadius:4}}
+                  onMouseEnter={e=>{e.target.style.color="#f87171";}}
+                  onMouseLeave={e=>{e.target.style.color="rgba(239,68,68,.35)";}}>✕</button>
+              </div>
             </div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontWeight:600,fontSize:".85rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{acc.displayName||acc.email}</div>
-              <div style={{fontSize:".65rem",color:"var(--dim)"}}>{acc.isAdmin?"أدمن":"تبديل للأكونت ده"}</div>
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:".4rem",flexShrink:0}}>
-              {switching?<span style={{fontSize:".7rem",color:"var(--dim)"}}>⏳</span>:<span style={{fontSize:".85rem",color:"var(--dim)"}}>⇄</span>}
-              <button onClick={e=>removeAccount(acc.uid,e)} style={{background:"none",border:"none",color:"rgba(239,68,68,.4)",fontSize:".8rem",cursor:"pointer",padding:".2rem .3rem",lineHeight:1}}>✕</button>
-            </div>
-          </div>
-        );})}
-        {/* Add account */}
-        <div onClick={()=>onViewChange("login")} style={{padding:".65rem 1.1rem",display:"flex",alignItems:"center",gap:".75rem",cursor:"pointer",borderTop:"1px solid var(--border)",transition:"background .15s"}}
+          );
+        })}
+
+        {/* Add account button */}
+        <div onClick={addAccount}
+          style={{padding:".75rem 1.1rem",display:"flex",alignItems:"center",gap:".75rem",cursor:"pointer",transition:"background .15s"}}
           onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,.03)";}}
           onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
-          <div style={{width:36,height:36,borderRadius:"50%",border:"1.5px dashed rgba(255,255,255,.15)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--dim)",fontSize:"1.1rem"}}>+</div>
-          <div style={{fontSize:".85rem",color:"var(--dim)",fontWeight:600}}>إضافة أكونت</div>
+          <div style={{width:38,height:38,borderRadius:"50%",border:"1.5px dashed rgba(255,255,255,.18)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--dim)",fontSize:"1.2rem",fontWeight:300}}>+</div>
+          <div>
+            <div style={{fontWeight:600,fontSize:".88rem",color:"var(--text)"}}>إضافة أكونت</div>
+            <div style={{fontSize:".65rem",color:"var(--dim)"}}>سجّل بـ Google أو الأدمن</div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
 
 function ProfilePage({user,favorites,accs,theme,onTheme,onSignOut,onToggleFav,onViewChange}){
   const myFavAccs=accs.filter(a=>favorites.includes(a.id));
@@ -3396,7 +3400,7 @@ function App(){
       const settingsDoc=await fb.getDoc(fb.doc(fb.db,"settings","admin"));
       const correctPw=settingsDoc.exists()&&settingsDoc.data().password?settingsDoc.data().password:ADMIN_DEFAULT;
       if(pw===correctPw){
-        setAdmin(true);setView("admin");setPwErr(false);setPw("");try{localStorage.setItem("rb_admin_pw",pw);}catch(e){}
+        setAdmin(true);setView("admin");setPwErr(false);setPw("");
         try{localStorage.setItem("rb_admin_pw",pw);}catch(e){}
       }else setPwErr(true);
     }catch(e){
@@ -4406,7 +4410,34 @@ function App(){
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+// Expose App to window for rendering
+window.__App=App;
+</script>
+<script>
+// This runs AFTER babel compiles App, and waits for Firebase
+function __startReact(){
+  if(window.__App && document.getElementById('root')){
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      React.createElement(window.__App)
+    );
+  }
+}
+
+if(window.__fbReady){
+  __startReact();
+} else {
+  window.addEventListener('fbReady', __startReact, {once:true});
+  // Fallback after 8s
+  setTimeout(function(){
+    if(!window.__fbReady){
+      var r=document.getElementById('root');
+      if(r&&r.innerHTML.trim()===''){
+        r.innerHTML='<div style="color:#d4a574;text-align:center;padding:3rem;font-family:Cairo,sans-serif"><div style="font-size:2rem;margin-bottom:1rem">⚠️</div><div>تعذّر الاتصال بالإنترنت</div><button onclick="location.reload()" style="margin-top:1rem;padding:.6rem 1.5rem;background:#d4a574;color:#000;border:none;border-radius:8px;font-family:Cairo,sans-serif;font-size:.9rem;cursor:pointer">إعادة المحاولة</button></div>';
+        window.__hideSplash&&window.__hideSplash();
+      }
+    }
+  }, 8000);
+}
 </script>
 <!-- ══ Splash Screen ══ -->
 <div id="splash">
@@ -4441,7 +4472,8 @@ window.__hideSplash=function(){
 window.addEventListener('load',function(){
   var seen=localStorage.getItem('rb_splash_seen');
   localStorage.setItem('rb_splash_seen','1');
-  var delay=seen?600:2200;
+  // Shorter delay - app renders fast now
+  var delay=seen?400:1800;
   setTimeout(function(){
     window.__hideSplash();
 
