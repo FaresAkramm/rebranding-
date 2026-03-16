@@ -2328,7 +2328,7 @@ function ProfilePage({user,favorites,accs,theme,onTheme,onSignOut,onToggleFav,on
       const p=await Notification.requestPermission();
       setNotifStatus(p);
       if(p==="granted"){
-        await window.registerFCMToken();
+        typeof window.registerFCMToken==="function"&&await window.registerFCMToken();
         if(window.listenToNotifications)window.listenToNotifications();
         msg("🔔 تم تفعيل الإشعارات!");
       }
@@ -3468,10 +3468,13 @@ function App(){
   React.useEffect(()=>{
     if(!fbOk)return;
     if(!("Notification" in window))return;
-    if(Notification.permission==="granted"){
-      window.registerFCMToken();
-    }
-    if(window.listenToNotifications) window.listenToNotifications();
+    // Defer 200ms to ensure Babel has finished compiling all functions
+    setTimeout(function(){
+      if(Notification.permission==="granted"){
+        if(typeof window.registerFCMToken==="function")window.registerFCMToken();
+        if(typeof window.listenToNotifications==="function")window.listenToNotifications();
+      }
+    },200);
   },[fbOk]);
 
   // اطلب notification permission بعد login
@@ -3480,7 +3483,7 @@ function App(){
     if(!("Notification" in window))return;
     if(Notification.permission==="granted"){
       if(window.listenToNotifications)window.listenToNotifications();
-      window.registerFCMToken();
+      if(typeof window.registerFCMToken==="function")typeof window.registerFCMToken==="function"&&window.registerFCMToken();
       return;
     }
     if(Notification.permission==="default"){
@@ -3489,7 +3492,7 @@ function App(){
         try{
           const perm=await Notification.requestPermission();
           if(perm==="granted"){
-            await window.registerFCMToken();
+            typeof window.registerFCMToken==="function"&&await window.registerFCMToken();
             if(window.listenToNotifications)window.listenToNotifications();
             msg("🔔 تم تفعيل الإشعارات!");
           }
@@ -3541,7 +3544,7 @@ function App(){
           setView(function(prev){return prev==="login"||prev==="landing"?"pub":prev;});
         }
         // FCM token
-        if(Notification.permission==="granted")window.registerFCMToken();
+        if(Notification.permission==="granted")typeof window.registerFCMToken==="function"&&window.registerFCMToken();
         // load user data from Firestore
         fb.getDoc(fb.doc(fb.db,"user_data",u.uid)).then(function(d){
           if(d.exists()){
@@ -3837,7 +3840,7 @@ function App(){
             </div>
           </div>
           <div style={{display:"flex",gap:".6rem"}}>
-            <button onClick={async()=>{setShowNotifPrompt(false);await window.requestNotifPermission();await window.registerFCMToken();}} style={{flex:1,background:"var(--hl)",color:"#0a0a0a",border:"none",borderRadius:10,padding:".6rem",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".85rem",cursor:"pointer"}}>اشترك ✓</button>
+            <button onClick={async()=>{setShowNotifPrompt(false);typeof window.requestNotifPermission==="function"&&await window.requestNotifPermission();typeof window.registerFCMToken==="function"&&await window.registerFCMToken();}} style={{flex:1,background:"var(--hl)",color:"#0a0a0a",border:"none",borderRadius:10,padding:".6rem",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".85rem",cursor:"pointer"}}>اشترك ✓</button>
             <button onClick={()=>{setShowNotifPrompt(false);localStorage.setItem("rb_notif_dismissed","1");}} style={{flex:1,background:"rgba(255,255,255,.06)",color:"var(--dim)",border:"1px solid rgba(255,255,255,.1)",borderRadius:10,padding:".6rem",fontFamily:"'Cairo',sans-serif",fontSize:".82rem",cursor:"pointer"}}>مش دلوقتي</button>
           </div>
         </div>
@@ -4014,7 +4017,7 @@ function App(){
               <div style={{textAlign:"center"}}><div style={{fontSize:"1.5rem",fontWeight:700,color:"var(--hl)",fontFamily:"'Playfair Display',serif"}}>{offs.filter(o=>!isExp(o.expiryDate)).length}</div><div style={{fontSize:".6rem",color:"var(--dim)",letterSpacing:".15em",textTransform:"uppercase"}}>عرض نشط</div></div>
             </div>
             {"Notification" in window && Notification.permission!=="granted" && (
-              <button onClick={async()=>{await window.requestNotifPermission();}} style={{marginTop:"1rem",background:"rgba(212,165,116,.08)",border:"1px solid rgba(212,165,116,.25)",color:"var(--hl)",borderRadius:20,padding:".4rem 1.1rem",fontFamily:"'Cairo',sans-serif",fontSize:".75rem",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:".4rem",margin:".8rem auto 0"}}>
+              <button onClick={async()=>{typeof window.requestNotifPermission==="function"&&await window.requestNotifPermission();}} style={{marginTop:"1rem",background:"rgba(212,165,116,.08)",border:"1px solid rgba(212,165,116,.25)",color:"var(--hl)",borderRadius:20,padding:".4rem 1.1rem",fontFamily:"'Cairo',sans-serif",fontSize:".75rem",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:".4rem",margin:".8rem auto 0"}}>
                 🔔 اشترك في إشعارات العروض الجديدة
               </button>
             )}
@@ -4090,7 +4093,7 @@ function App(){
             <div style={{display:"flex",alignItems:"center",gap:".7rem",padding:".8rem 1rem",background:"rgba(212,165,116,.07)",border:"1px solid rgba(212,165,116,.2)",borderRadius:10,marginBottom:"1rem",fontSize:".8rem",color:"var(--dim)"}}>
               <span style={{fontSize:"1.2rem"}}>🔔</span>
               <div style={{flex:1}}>فعّل الإشعارات عشان تعرف لما يجي سؤال جديد أو تعديل</div>
-              <button onClick={async()=>{await window.requestNotifPermission();await window.registerFCMToken();msg("✅ تم تفعيل الإشعارات!");}} style={{...S.pBtn,padding:".4rem .85rem",fontSize:".74rem",whiteSpace:"nowrap"}}>تفعيل 🔔</button>
+              <button onClick={async()=>{typeof window.requestNotifPermission==="function"&&await window.requestNotifPermission();typeof window.registerFCMToken==="function"&&await window.registerFCMToken();msg("✅ تم تفعيل الإشعارات!");}} style={{...S.pBtn,padding:".4rem .85rem",fontSize:".74rem",whiteSpace:"nowrap"}}>تفعيل 🔔</button>
             </div>
           )}
 
