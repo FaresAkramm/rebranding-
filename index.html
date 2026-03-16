@@ -1016,7 +1016,7 @@ function ExplainModal({onClose,isAdmin}){
 /* ══ LANDING ══ */
 
 /* ══ GEMINI BOT ══ */
-async function askGemini(sysprompt,history,maxTok){
+window.askGemini=async function askGemini(sysprompt,history,maxTok){
   async function doRequest(prompt,hist,tok){
     var msgs=[{role:"system",content:prompt}];
     hist.forEach(function(m){msgs.push({role:m.r==="user"?"user":"assistant",content:m.t});});
@@ -1232,7 +1232,7 @@ function buildAdminContext(accs,offs){
   return parts.join("\n");
 }
 
-async function logActivity(type,label,detail){
+window.logActivity=async function logActivity(type,label,detail){
   try{
     var fb=window.__fb;if(!fb)return;
     var id="act_"+Date.now();
@@ -1243,7 +1243,7 @@ async function logActivity(type,label,detail){
   }catch(e){}
 }
 
-async function parseAndExecAction(actionStr,accs,offs,onDone){
+window.parseAndExecAction=async function parseAndExecAction(actionStr,accs,offs,onDone){
   try{
     var parsed=JSON.parse(actionStr);
     var fb=window.__fb;
@@ -1393,7 +1393,7 @@ function BotWindow({accs,offs,isAdmin,onClose,onSaveQA,onAction}){
   },[isAdmin]);
 
   // ══ Push Notifications ══
-async function requestNotifPermission(){
+window.requestNotifPermission=async function requestNotifPermission(){
   if(!("Notification" in window))return false;
   if(Notification.permission==="granted")return true;
   if(Notification.permission==="denied"){
@@ -1429,7 +1429,7 @@ window.showLocalNotif=function showLocalNotif(title,body,icon){
 // ══ FCM Push Notifications ══
 const FCM_VAPID = "BMmV9tGXzzR5lR2FCElcgw46cvvi4v3d03cSqMr7RH2tBvBa7EgAJrNyRtcKks0I9fLUY_vzOeQwDKdXvLOAXhQ";
 
-async function registerFCMToken(){
+window.registerFCMToken=async function registerFCMToken(){
   try{
     var fb=window.__fb;
     if(!fb||!fb.messaging)return;
@@ -1456,7 +1456,7 @@ async function registerFCMToken(){
   }catch(e){}
 }
 
-async function sendPushToAll(title,body,accId){
+window.sendPushToAll=async function sendPushToAll(title,body,accId){
   try{
     var fb=window.__fb;if(!fb)return;
     const id="notif_"+Date.now();
@@ -1494,7 +1494,7 @@ window.listenToNotifications=async function(){
   }catch(e){}
 };
 
-async function saveUnansweredToFB(q,accName,accId){
+window.saveUnansweredToFB=async function saveUnansweredToFB(q,accName,accId){
     try{
       var fb=window.__fb;if(!fb)return;
       var id="uq_"+Date.now();
@@ -2328,7 +2328,7 @@ function ProfilePage({user,favorites,accs,theme,onTheme,onSignOut,onToggleFav,on
       const p=await Notification.requestPermission();
       setNotifStatus(p);
       if(p==="granted"){
-        await registerFCMToken();
+        await window.registerFCMToken();
         if(window.listenToNotifications)window.listenToNotifications();
         msg("🔔 تم تفعيل الإشعارات!");
       }
@@ -3469,7 +3469,7 @@ function App(){
     if(!fbOk)return;
     if(!("Notification" in window))return;
     if(Notification.permission==="granted"){
-      registerFCMToken();
+      window.registerFCMToken();
     }
     if(window.listenToNotifications) window.listenToNotifications();
   },[fbOk]);
@@ -3480,7 +3480,7 @@ function App(){
     if(!("Notification" in window))return;
     if(Notification.permission==="granted"){
       if(window.listenToNotifications)window.listenToNotifications();
-      registerFCMToken();
+      window.registerFCMToken();
       return;
     }
     if(Notification.permission==="default"){
@@ -3489,7 +3489,7 @@ function App(){
         try{
           const perm=await Notification.requestPermission();
           if(perm==="granted"){
-            await registerFCMToken();
+            await window.registerFCMToken();
             if(window.listenToNotifications)window.listenToNotifications();
             msg("🔔 تم تفعيل الإشعارات!");
           }
@@ -3541,7 +3541,7 @@ function App(){
           setView(function(prev){return prev==="login"||prev==="landing"?"pub":prev;});
         }
         // FCM token
-        if(Notification.permission==="granted")registerFCMToken();
+        if(Notification.permission==="granted")window.registerFCMToken();
         // load user data from Firestore
         fb.getDoc(fb.doc(fb.db,"user_data",u.uid)).then(function(d){
           if(d.exists()){
@@ -3837,7 +3837,7 @@ function App(){
             </div>
           </div>
           <div style={{display:"flex",gap:".6rem"}}>
-            <button onClick={async()=>{setShowNotifPrompt(false);await requestNotifPermission();await registerFCMToken();}} style={{flex:1,background:"var(--hl)",color:"#0a0a0a",border:"none",borderRadius:10,padding:".6rem",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".85rem",cursor:"pointer"}}>اشترك ✓</button>
+            <button onClick={async()=>{setShowNotifPrompt(false);await window.requestNotifPermission();await window.registerFCMToken();}} style={{flex:1,background:"var(--hl)",color:"#0a0a0a",border:"none",borderRadius:10,padding:".6rem",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".85rem",cursor:"pointer"}}>اشترك ✓</button>
             <button onClick={()=>{setShowNotifPrompt(false);localStorage.setItem("rb_notif_dismissed","1");}} style={{flex:1,background:"rgba(255,255,255,.06)",color:"var(--dim)",border:"1px solid rgba(255,255,255,.1)",borderRadius:10,padding:".6rem",fontFamily:"'Cairo',sans-serif",fontSize:".82rem",cursor:"pointer"}}>مش دلوقتي</button>
           </div>
         </div>
@@ -4014,7 +4014,7 @@ function App(){
               <div style={{textAlign:"center"}}><div style={{fontSize:"1.5rem",fontWeight:700,color:"var(--hl)",fontFamily:"'Playfair Display',serif"}}>{offs.filter(o=>!isExp(o.expiryDate)).length}</div><div style={{fontSize:".6rem",color:"var(--dim)",letterSpacing:".15em",textTransform:"uppercase"}}>عرض نشط</div></div>
             </div>
             {"Notification" in window && Notification.permission!=="granted" && (
-              <button onClick={async()=>{await requestNotifPermission();}} style={{marginTop:"1rem",background:"rgba(212,165,116,.08)",border:"1px solid rgba(212,165,116,.25)",color:"var(--hl)",borderRadius:20,padding:".4rem 1.1rem",fontFamily:"'Cairo',sans-serif",fontSize:".75rem",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:".4rem",margin:".8rem auto 0"}}>
+              <button onClick={async()=>{await window.requestNotifPermission();}} style={{marginTop:"1rem",background:"rgba(212,165,116,.08)",border:"1px solid rgba(212,165,116,.25)",color:"var(--hl)",borderRadius:20,padding:".4rem 1.1rem",fontFamily:"'Cairo',sans-serif",fontSize:".75rem",fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:".4rem",margin:".8rem auto 0"}}>
                 🔔 اشترك في إشعارات العروض الجديدة
               </button>
             )}
@@ -4090,7 +4090,7 @@ function App(){
             <div style={{display:"flex",alignItems:"center",gap:".7rem",padding:".8rem 1rem",background:"rgba(212,165,116,.07)",border:"1px solid rgba(212,165,116,.2)",borderRadius:10,marginBottom:"1rem",fontSize:".8rem",color:"var(--dim)"}}>
               <span style={{fontSize:"1.2rem"}}>🔔</span>
               <div style={{flex:1}}>فعّل الإشعارات عشان تعرف لما يجي سؤال جديد أو تعديل</div>
-              <button onClick={async()=>{await requestNotifPermission();await registerFCMToken();msg("✅ تم تفعيل الإشعارات!");}} style={{...S.pBtn,padding:".4rem .85rem",fontSize:".74rem",whiteSpace:"nowrap"}}>تفعيل 🔔</button>
+              <button onClick={async()=>{await window.requestNotifPermission();await window.registerFCMToken();msg("✅ تم تفعيل الإشعارات!");}} style={{...S.pBtn,padding:".4rem .85rem",fontSize:".74rem",whiteSpace:"nowrap"}}>تفعيل 🔔</button>
             </div>
           )}
 
