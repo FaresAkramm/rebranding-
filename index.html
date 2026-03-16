@@ -1502,8 +1502,8 @@ window.saveUnansweredToFB=async function saveUnansweredToFB(q,accName,accId){
         q:q,accName:accName||"عام",accId:accId||"",a:"",createdAt:new Date().toISOString()
       });
       // Notify Admin - Local notification
-      // Show local notif for admin only
-      if(window.__currentUser&&window.showLocalNotif){
+      // Show local notif only when user is in admin view
+      if(window.__isAdminView&&window.showLocalNotif){
         window.showLocalNotif("❓ سؤال جديد!","من: "+(accName||"عام")+" — "+q.slice(0,60));
       }
       // Notify Telegram with accId embedded
@@ -2370,16 +2370,17 @@ function SwitchAccounts({user,onSwitch,onViewChange}){
             <div style={{fontSize:".65rem",color:"var(--dim)"}}>سجّل بـ Google</div>
           </div>
         </div>
-        {/* Add Admin account */}
+        {/* Switch to Admin with same Google account */}
         <div onClick={()=>onViewChange("admin_login")}
           style={{padding:".75rem 1.1rem",display:"flex",alignItems:"center",gap:".75rem",cursor:"pointer",transition:"background .15s"}}
           onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,.03)";}}
           onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
-          <div style={{width:38,height:38,borderRadius:"50%",border:"1.5px dashed rgba(212,165,116,.3)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1rem"}}>🔐</div>
-          <div>
-            <div style={{fontWeight:600,fontSize:".88rem",color:"var(--hl)"}}>دخول كأدمن</div>
-            <div style={{fontSize:".65rem",color:"var(--dim)"}}>حط كلمة المرور</div>
+          <div style={{width:38,height:38,borderRadius:"50%",border:"1.5px solid rgba(212,165,116,.3)",background:"rgba(212,165,116,.06)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1rem"}}>🔐</div>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:600,fontSize:".88rem",color:"var(--hl)"}}>تبديل لوضع الأدمن</div>
+            <div style={{fontSize:".65rem",color:"var(--dim)"}}>نفس الأكونت · فقط كلمة المرور</div>
           </div>
+          <span style={{color:"var(--dim)",fontSize:".9rem"}}>←</span>
         </div>
       </div>
     </div>
@@ -3508,11 +3509,13 @@ function App(){
       const correctPw=settingsDoc.exists()&&settingsDoc.data().password?settingsDoc.data().password:ADMIN_DEFAULT;
       if(pw===correctPw){
         setAdmin(true);setView("admin");setPwErr(false);setPw("");
+        window.__isAdminView=true;
         try{localStorage.setItem("rb_admin_pw",pw);}catch(e){}
       }else setPwErr(true);
     }catch(e){
       if(pw===ADMIN_DEFAULT){
         setAdmin(true);setView("admin");setPwErr(false);setPw("");
+        window.__isAdminView=true;
         try{localStorage.setItem("rb_admin_pw",pw);}catch(e){}
       }else setPwErr(true);
     }
@@ -3683,6 +3686,7 @@ function App(){
       setUser(null);
       window.__currentUser=null;
       setAdmin(false);
+      window.__isAdminView=false;
       // Clear ALL saved auth state
       try{
         localStorage.removeItem("rb_admin_pw");
@@ -3773,13 +3777,7 @@ function App(){
         <BotWindow accs={accs} offs={offs} isAdmin={false} onClose={()=>setShowPublicBot(false)}/>
       )}
 
-      {/* ══ BOT FAB — ADMIN ══ */}
-      {view==="admin"&&admin&&(
-        <button className="bot-fab" onClick={()=>setShowAdminBot(!showAdminBot)} title="مساعد الأدمن" style={{position:"fixed",bottom:"calc(1.4rem + var(--safe-bottom))",left:"1.4rem",zIndex:160}}>
-          🤖
-          {pendingQCount>0&&<span className="bot-badge">{pendingQCount}</span>}
-        </button>
-      )}
+      {/* bot FAB removed - bot accessible from nav bar only */}
       {view==="admin"&&admin&&showAdminBot&&(
         <BotWindow accs={accs} offs={offs} isAdmin={true} onClose={()=>setShowAdminBot(false)} onAction={(actionJson,cb)=>parseAndExecAction(actionJson,accs,offs,cb)} onSaveQA={async(item)=>{
           var fb=window.__fb;
@@ -4011,7 +4009,9 @@ function App(){
           <div style={{background:"#0f0f0f",border:"1px solid rgba(212,165,116,.15)",borderRadius:16,padding:"2rem 1.6rem",width:"100%",maxWidth:340,textAlign:"center"}}>
             <div style={{fontSize:"1.8rem",marginBottom:".8rem"}}>🔐</div>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1.1rem",marginBottom:".5rem"}}>لوحة التحكم</div>
-            <div style={{fontSize:".75rem",color:"var(--dim)",marginBottom:"1.4rem",lineHeight:1.6}}>سجّل بـ Google الأول، بعدين حط كلمة المرور</div>
+            <div style={{fontSize:".75rem",color:"var(--dim)",marginBottom:"1.4rem",lineHeight:1.6}}>
+              {user?"حط كلمة المرور للدخول كأدمن":"سجّل بـ Google الأول، بعدين حط كلمة المرور"}
+            </div>
             {/* Step 1: Google login if not logged in */}
             {!user?(
               <button onClick={async()=>{try{var fb=window.__fb;await fb.signInWithPopup(fb.auth,fb.googleProvider);}catch(e){msg("❌ "+e.message);}}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:".75rem",padding:".8rem 1rem",borderRadius:12,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.05)",color:"var(--text)",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".9rem",cursor:"pointer",marginBottom:"1rem",minHeight:50}}>
