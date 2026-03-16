@@ -46,8 +46,7 @@ self.addEventListener('activate', e => {
   );
 });
 
-// Fetch - pass through everything, NO caching at all
-self.addEventListener('fetch', () => {});
+// No fetch handler - all requests go directly to network
 
 // Notification click
 self.addEventListener('notificationclick', e => {
