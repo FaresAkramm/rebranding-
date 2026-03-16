@@ -2212,7 +2212,7 @@ function WAField({user}){
   );
 }
 
-function SwitchAccounts({user,onSwitch,onViewChange}){
+function SwitchAccounts({user,onSwitch,onViewChange,onSwitchToUser}){
   const fb=window.__fb;
   const[saved,setSaved]=useState(()=>{
     try{return JSON.parse(localStorage.getItem("rb_saved_accounts")||"[]");}
@@ -2359,26 +2359,29 @@ function SwitchAccounts({user,onSwitch,onViewChange}){
           );
         })}
 
-        {/* Add Google account */}
-        <div onClick={addAccount}
-          style={{padding:".75rem 1.1rem",display:"flex",alignItems:"center",gap:".75rem",cursor:"pointer",transition:"background .15s",borderBottom:"1px solid var(--border)"}}
-          onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,.03)";}}
-          onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
-          <div style={{width:38,height:38,borderRadius:"50%",border:"1.5px dashed rgba(255,255,255,.18)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--dim)",fontSize:"1.2rem",fontWeight:300}}>+</div>
-          <div>
-            <div style={{fontWeight:600,fontSize:".88rem",color:"var(--text)"}}>إضافة أكونت Google</div>
-            <div style={{fontSize:".65rem",color:"var(--dim)"}}>سجّل بـ Google</div>
-          </div>
-        </div>
-        {/* Switch to Admin with same Google account */}
-        <div onClick={()=>onViewChange("admin_login")}
+        {/* Toggle Admin / User mode */}
+        <div onClick={()=>{
+          if(window.__isAdminView){
+            // Switch back to user
+            window.__isAdminView=false;
+            onSwitchToUser&&onSwitchToUser();
+          } else {
+            onViewChange("admin_login");
+          }
+        }}
           style={{padding:".75rem 1.1rem",display:"flex",alignItems:"center",gap:".75rem",cursor:"pointer",transition:"background .15s"}}
           onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,.03)";}}
           onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
-          <div style={{width:38,height:38,borderRadius:"50%",border:"1.5px solid rgba(212,165,116,.3)",background:"rgba(212,165,116,.06)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1rem"}}>🔐</div>
+          <div style={{width:38,height:38,borderRadius:"50%",border:`1.5px solid ${window.__isAdminView?"rgba(74,222,128,.3)":"rgba(212,165,116,.3)"}`,background:window.__isAdminView?"rgba(74,222,128,.06)":"rgba(212,165,116,.06)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1rem"}}>
+            {window.__isAdminView?"👤":"🔐"}
+          </div>
           <div style={{flex:1}}>
-            <div style={{fontWeight:600,fontSize:".88rem",color:"var(--hl)"}}>تبديل لوضع الأدمن</div>
-            <div style={{fontSize:".65rem",color:"var(--dim)"}}>نفس الأكونت · فقط كلمة المرور</div>
+            <div style={{fontWeight:600,fontSize:".88rem",color:window.__isAdminView?"#4ade80":"var(--hl)"}}>
+              {window.__isAdminView?"تبديل لوضع اليوزر":"تبديل لوضع الأدمن"}
+            </div>
+            <div style={{fontSize:".65rem",color:"var(--dim)"}}>
+              {window.__isAdminView?"العودة للواجهة العادية":"نفس الأكونت · فقط كلمة المرور"}
+            </div>
           </div>
           <span style={{color:"var(--dim)",fontSize:".9rem"}}>←</span>
         </div>
@@ -2388,7 +2391,7 @@ function SwitchAccounts({user,onSwitch,onViewChange}){
 }
 
 
-function ProfilePage({user,favorites,accs,theme,onTheme,onSignOut,onToggleFav,onViewChange}){
+function ProfilePage({user,favorites,accs,theme,onTheme,onSignOut,onToggleFav,onSwitchToUser,onViewChange}){
   const myFavAccs=accs.filter(a=>favorites.includes(a.id));
   const[notifStatus,setNotifStatus]=useState(
     !("Notification" in window)?"not-supported":Notification.permission
@@ -2513,7 +2516,7 @@ function ProfilePage({user,favorites,accs,theme,onTheme,onSignOut,onToggleFav,on
         )}
 
         {/* Switch Accounts */}
-        <SwitchAccounts user={user} onSwitch={onSignOut} onViewChange={onViewChange}/>
+        <SwitchAccounts user={user} onSwitch={onSignOut} onViewChange={onViewChange} onSwitchToUser={onSwitchToUser}/>
 
         {/* Sign in / Sign out */}
         <div style={{marginTop:".75rem"}}>
@@ -3959,8 +3962,13 @@ function App(){
             <span className="bnav-icon">📲</span><span>تنزيل</span>
           </button>}
 
-          <button className={"bnav-btn"+(showPublicBot?" active":"")} onClick={()=>{setShowFavs(false);setShowPublicBot(!showPublicBot);}}>
-            <span className="bnav-icon">🤖</span><span>البوت</span>
+          <button className={"bnav-btn"+((admin?showAdminBot:showPublicBot)?" active":"")} onClick={()=>{
+            if(admin){setShowAdminBot(!showAdminBot);}
+            else{setShowFavs(false);setShowPublicBot(!showPublicBot);}
+          }}>
+            <span className="bnav-icon">🤖</span>
+            <span>البوت</span>
+            {admin&&pendingQCount>0&&<span className="bnav-badge">{pendingQCount}</span>}
           </button>
           <button className={"bnav-btn"+(showExplain?" active":"")} onClick={()=>setShowExplain(!showExplain)}>
             <span className="bnav-icon">💡</span><span>مساعدة</span>
@@ -4043,6 +4051,7 @@ function App(){
           onTheme={setTheme}
           onSignOut={async()=>{await googleLogout();setView("pub");}}
           onToggleFav={toggleFav}
+          onSwitchToUser={()=>{setAdmin(false);setView("pub");try{localStorage.removeItem("rb_admin_pw");}catch(e){}}}
           onViewChange={(v)=>{
             if(v==="mine"){setView("pub");setPtab("mine");}
             else setView(v);
