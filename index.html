@@ -25,21 +25,44 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(function(){});
 }
 </script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script type="module">
-  import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import{getFirestore,collection,doc,setDoc,deleteDoc,onSnapshot,getDocs,query,orderBy,limit,getDoc}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-  import{getMessaging,getToken,onMessage}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
-  import{getAuth,signInWithPopup,GoogleAuthProvider,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  const app=initializeApp({apiKey:"AIzaSyDyw9pT5tkE6Jz8_aamc1oK8NZk69R3sBo",authDomain:"rebranding-data-mod-56340.firebaseapp.com",projectId:"rebranding-data-mod-56340",storageBucket:"rebranding-data-mod-56340.firebasestorage.app",messagingSenderId:"696496503983",appId:"1:696496503983:web:144e09ee144d518fa2e85a"});
-  const db=getFirestore(app);
-  const messaging=getMessaging(app);
-  const auth=getAuth(app);
-  const googleProvider=new GoogleAuthProvider();
-  window.__fb={db,collection,doc,setDoc,deleteDoc,onSnapshot,getDocs,query,orderBy,limit,getDoc,messaging,getToken,onMessage,auth,signInWithPopup,googleProvider,signOut,onAuthStateChanged};
+<script>
+  firebase.initializeApp({apiKey:"AIzaSyDyw9pT5tkE6Jz8_aamc1oK8NZk69R3sBo",authDomain:"rebranding-data-mod-56340.firebaseapp.com",projectId:"rebranding-data-mod-56340",storageBucket:"rebranding-data-mod-56340.firebasestorage.app",messagingSenderId:"696496503983",appId:"1:696496503983:web:144e09ee144d518fa2e85a"});
+  var _db=firebase.firestore();
+  var _auth=firebase.auth();
+  var _messaging=firebase.messaging();
+  var _gp=new firebase.auth.GoogleAuthProvider();
+  window.__fb={
+    db:_db,
+    // Firestore methods
+    collection:function(db,col){return db.collection(col);},
+    doc:function(db,col,id){return db.collection(col).doc(id);},
+    setDoc:function(ref,data,opts){return opts&&opts.merge?ref.set(data,{merge:true}):ref.set(data);},
+    deleteDoc:function(ref){return ref.delete();},
+    onSnapshot:function(ref,cb,err){return ref.onSnapshot(cb,err);},
+    getDocs:function(ref){return ref.get();},
+    getDoc:function(ref){return ref.get();},
+    query:function(ref,...args){let q=ref;args.forEach(a=>{if(a&&a.__type==='orderBy')q=q.orderBy(a.field,a.dir);else if(a&&a.__type==='limit')q=q.limit(a.n);});return q;},
+    orderBy:function(f,d){return{__type:'orderBy',field:f,dir:d||'asc'};},
+    limit:function(n){return{__type:'limit',n:n};},
+    // Auth methods
+    auth:_auth,
+    signInWithPopup:function(auth,provider){return auth.signInWithPopup(provider);},
+    googleProvider:_gp,
+    signOut:function(auth){return auth.signOut();},
+    onAuthStateChanged:function(auth,cb){return auth.onAuthStateChanged(cb);},
+    // Messaging
+    messaging:_messaging,
+    getToken:function(msg,opts){return msg.getToken(opts);},
+    onMessage:function(msg,cb){return msg.onMessage(cb);},
+  };
   window.__fbReady=true;
   window.dispatchEvent(new Event("fbReady"));
 </script>
@@ -4412,19 +4435,8 @@ function App(){
   );
 }
 
-// Render React - Firebase is guaranteed ready before babel runs
-// because Firebase is a sync module that fires fbReady before DOMContentLoaded
-var __root = ReactDOM.createRoot(document.getElementById('root'));
-
-function __doRender(){
-  __root.render(React.createElement(App));
-}
-
-if(window.__fbReady){
-  __doRender();
-} else {
-  window.addEventListener('fbReady', __doRender, {once:true});
-}
+// Firebase compat loads sync - render immediately
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 <!-- ══ Splash Screen ══ -->
 <div id="splash">
