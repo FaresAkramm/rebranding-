@@ -3128,7 +3128,7 @@ function UsersPanel(){
 }
 
 function App(){
-  const[fbOk,setFbOk]=useState(!!window.__fbReady);
+  const[fbOk,setFbOk]=useState(true); // Firebase loads sync before React
   const[fbError,setFbError]=useState(null);
   const[accs,setAccs]=useState([]);
   const[offs,setOffs]=useState([]);
@@ -3231,15 +3231,12 @@ function App(){
   },[]);
 
   /* ── Firebase init ── */
+  // Firebase script loads synchronously before React, so fbOk is always true
+  // Just verify fb object exists
   useEffect(()=>{
-    if(window.__fbReady){setFbOk(true);return;}
-    window.addEventListener("fbReady",()=>setFbOk(true),{once:true});
-    // Force proceed after 3s even if event missed (SW cache issue)
-    var t=setTimeout(()=>{
-      if(window.__fb){setFbOk(true);}
-      else{setFbError("تعذّر الاتصال. تأكد من الاتصال بالإنترنت وأعد المحاولة.");}
-    },3000);
-    return()=>clearTimeout(t);
+    if(!window.__fb){
+      setFbError("تعذّر الاتصال. تأكد من الاتصال بالإنترنت وأعد المحاولة.");
+    }
   },[]);
 
   /* ── Data listeners ── */
