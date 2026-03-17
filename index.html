@@ -1431,27 +1431,33 @@ const FCM_VAPID = "BMmV9tGXzzR5lR2FCElcgw46cvvi4v3d03cSqMr7RH2tBvBa7EgAJrNyRtcKk
 
 window.registerFCMToken=async function registerFCMToken(){
   try{
+    if(!("Notification" in window))return;
+    if(Notification.permission!=="granted")return;
     var fb=window.__fb;
-    if(!fb||!fb.messaging)return;
-    const perm=await Notification.requestPermission();
-    if(perm!=="granted")return;
-    const token=await fb.getToken(fb.messaging,{vapidKey:FCM_VAPID});
+    if(!fb)return;
+    // Firebase compat: firebase.messaging().getToken({vapidKey})
+    var messaging=firebase.messaging();
+    var token=await messaging.getToken({vapidKey:FCM_VAPID});
     if(!token)return;
-    // حفظ الـ token — لو فيه user مسجل يتحفظ بـ uid، غير كده بـ token
     var uid=window.__currentUser?window.__currentUser.uid:null;
-    var docId=uid?"user_"+uid+"_fcm":token;
+    var docId=uid?"user_"+uid+"_fcm":token.slice(0,20);
     await fb.setDoc(fb.doc(fb.db,"fcm_tokens",docId),{
-      token,uid:uid||null,
+      token:token,
+      uid:uid||null,
       email:window.__currentUser?window.__currentUser.email||"":null,
-      createdAt:new Date().toISOString(),
       updatedAt:new Date().toISOString(),
       platform:navigator.userAgent.includes("Mobile")?"mobile":"desktop"
     });
-    // استمع للـ messages وهو مفتوح
-    fb.onMessage(fb.messaging,function(payload){
-      const {title,body}=payload.notification||{};
-      if(title)window.showLocalNotif(title,body||"");
-    });
+    // Listen to foreground messages
+    if(!window.__fcmListenerActive){
+      window.__fcmListenerActive=true;
+      messaging.onMessage(function(payload){
+        var title=(payload.notification||{}).title;
+        var body=(payload.notification||{}).body||"";
+        if(title&&typeof window.showLocalNotif==="function")
+          window.showLocalNotif(title,body);
+      });
+    }
     return token;
   }catch(e){}
 }
@@ -1473,21 +1479,26 @@ window.sendPushToAll=async function sendPushToAll(title,body,accId){
 window.listenToNotifications=async function(){
   try{
     var fb=window.__fb;if(!fb)return;
-    var lastCheck=localStorage.getItem("rb_last_notif")||new Date(Date.now()-60000).toISOString();
+    // Don't start duplicate listeners
+    if(window.__notifListenerActive)return;
+    window.__notifListenerActive=true;
+    var lastCheck=localStorage.getItem("rb_last_notif")||new Date(Date.now()-5000).toISOString();
     fb.onSnapshot(
-      fb.query(fb.collection(fb.db,"notifications"),fb.orderBy("createdAt","desc"),fb.limit(5)),
+      fb.query(fb.collection(fb.db,"notifications"),fb.orderBy("createdAt","desc"),fb.limit(10)),
       function(snap){
         snap.docs.forEach(function(d){
           var n=d.data();
-          if(n.createdAt<=lastCheck)return;
-          // check if user follows this account (or it's a general notification)
+          if(!n.createdAt||n.createdAt<=lastCheck)return;
+          // Update lastCheck to latest
+          if(n.createdAt>lastCheck)lastCheck=n.createdAt;
+          localStorage.setItem("rb_last_notif",n.createdAt);
+          // Show to user based on favorites
           var favs=[];
           try{favs=JSON.parse(localStorage.getItem("rb_favs")||"[]");}catch(e){}
           var shouldShow=!n.accId||favs.length===0||favs.includes(n.accId);
-          if(shouldShow){
+          if(shouldShow&&typeof window.showLocalNotif==="function"){
             window.showLocalNotif(n.title,n.body||"");
           }
-          localStorage.setItem("rb_last_notif",n.createdAt);
         });
       }
     );
@@ -3562,13 +3573,14 @@ function App(){
   React.useEffect(()=>{
     if(!fbOk)return;
     if(!("Notification" in window))return;
-    // Defer 200ms to ensure Babel has finished compiling all functions
+    // Start listening to notifications for ALL logged-in users
     setTimeout(function(){
       if(Notification.permission==="granted"){
         if(typeof window.registerFCMToken==="function")window.registerFCMToken();
-        if(typeof window.listenToNotifications==="function")window.listenToNotifications();
       }
-    },200);
+      // Always start notification listener (shows in-app even without permission)
+      if(typeof window.listenToNotifications==="function")window.listenToNotifications();
+    },300);
   },[fbOk]);
 
   // اطلب notification permission بعد login
@@ -3916,7 +3928,15 @@ function App(){
             </div>
           </div>
           <div style={{display:"flex",gap:".6rem"}}>
-            <button onClick={async()=>{setShowNotifPrompt(false);typeof window.requestNotifPermission==="function"&&await window.requestNotifPermission();typeof window.registerFCMToken==="function"&&await window.registerFCMToken();}} style={{flex:1,background:"var(--hl)",color:"#0a0a0a",border:"none",borderRadius:10,padding:".6rem",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".85rem",cursor:"pointer"}}>اشترك ✓</button>
+            <button onClick={async()=>{
+  setShowNotifPrompt(false);
+  var perm=await Notification.requestPermission();
+  if(perm==="granted"){
+    if(typeof window.registerFCMToken==="function")await window.registerFCMToken();
+    if(typeof window.listenToNotifications==="function")window.listenToNotifications();
+    msg("🔔 تم تفعيل الإشعارات!");
+  }
+}} style={{flex:1,background:"var(--hl)",color:"#0a0a0a",border:"none",borderRadius:10,padding:".6rem",fontFamily:"'Cairo',sans-serif",fontWeight:700,fontSize:".85rem",cursor:"pointer"}}>اشترك ✓</button>
             <button onClick={()=>{setShowNotifPrompt(false);localStorage.setItem("rb_notif_dismissed","1");}} style={{flex:1,background:"rgba(255,255,255,.06)",color:"var(--dim)",border:"1px solid rgba(255,255,255,.1)",borderRadius:10,padding:".6rem",fontFamily:"'Cairo',sans-serif",fontSize:".82rem",cursor:"pointer"}}>مش دلوقتي</button>
           </div>
         </div>
