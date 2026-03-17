@@ -1464,16 +1464,24 @@ window.registerFCMToken=async function registerFCMToken(){
 
 window.sendPushToAll=async function sendPushToAll(title,body,accId){
   try{
-    // Send via Vercel backend — FCM push to all devices + Firestore write
-    fetch("https://rebrandingbot.vercel.app/api/notify",{
+    var fb=window.__fb;if(!fb)return;
+    // 1. Write to Firestore — listenToNotifications will pick this up
+    var id="notif_"+Date.now();
+    await fb.setDoc(fb.doc(fb.db,"notifications",id),{
+      id:id,title:title,body:body||"",
+      accId:accId||null,
+      createdAt:new Date().toISOString(),
+      read:false
+    });
+    // 2. Try Vercel FCM push (works even when app closed)
+    fetch("https://rebranding-bottt.vercel.app/api/notify",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({title:title,body:body||"",accId:accId||null})
     }).catch(function(){});
-    // Also send Telegram
+    // 3. Telegram
     var tgMsg="\uD83D\uDD14 "+title+"\n"+(body||"")+"\n\n\uD83D\uDCF1 Rebranding Data Mod";
     fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:TG_ADMIN_ID,text:tgMsg})}).catch(function(){});
-    var fb=window.__fb;
     if(fb){
       fb.getDocs(fb.collection(fb.db,"telegram_subscribers")).then(function(snap){
         snap.docs.forEach(function(d){var s=d.data();if(s.chatId&&s.chatId!==String(TG_ADMIN_ID)){fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:s.chatId,text:tgMsg})}).catch(function(){});}});
@@ -1486,36 +1494,35 @@ window.sendPushToAll=async function sendPushToAll(title,body,accId){
 window.listenToNotifications=function(){
   try{
     var fb=window.__fb;if(!fb)return;
-    // Don't start duplicate listeners
     if(window.__notifListenerActive)return;
     window.__notifListenerActive=true;
-    var lastCheck=localStorage.getItem("rb_last_notif")||new Date(Date.now()-3000).toISOString();
+    // Use current time minus 5 seconds as baseline
+    var lastCheck=new Date(Date.now()-5000).toISOString();
+    // Simple collection listener - no query ordering needed
     fb.onSnapshot(
-      fb.query(fb.collection(fb.db,"notifications"),fb.orderBy("createdAt","desc"),fb.limit(20)),
+      fb.collection(fb.db,"notifications"),
       function(snap){
-        snap.docs.forEach(function(d){
-          var n=d.data();
+        snap.docChanges().forEach(function(change){
+          if(change.type!=="added")return;
+          var n=change.doc.data();
           if(!n.createdAt||n.createdAt<=lastCheck)return;
-          if(n.createdAt>lastCheck)lastCheck=n.createdAt;
-          localStorage.setItem("rb_last_notif",n.createdAt);
-          // Filter by favorites
-          var favs=[];
-          try{favs=JSON.parse(localStorage.getItem("rb_favs")||"[]");}catch(e){}
-          var shouldShow=!n.accId||favs.length===0||favs.includes(n.accId);
-          if(!shouldShow)return;
+          // Show toast for ALL users
+          if(typeof window.__showToast==="function"){
+            window.__showToast("🔔 "+n.title);
+          }
           // Show system notification if permission granted
           if(Notification.permission==="granted"&&typeof window.showLocalNotif==="function"){
             window.showLocalNotif(n.title,n.body||"");
           }
-          // ALWAYS show in-app toast regardless of permission
-          if(typeof window.__showToast==="function"){
-            window.__showToast(n.title);
-          }
         });
       },
-      function(err){ window.__notifListenerActive=false; }
+      function(err){
+        window.__notifListenerActive=false;
+      }
     );
-  }catch(e){ window.__notifListenerActive=false; }
+  }catch(e){
+    window.__notifListenerActive=false;
+  }
 };
 
 window.saveUnansweredToFB=async function saveUnansweredToFB(q,accName,accId){
