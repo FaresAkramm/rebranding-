@@ -21,8 +21,9 @@ if('serviceWorker' in navigator){
       keys.forEach(function(k){ caches.delete(k); });
     });
   }
-  // Register SW for FCM only (no caching)
-  navigator.serviceWorker.register('sw.js').catch(function(){});
+  // Register both SWs - firebase-messaging-sw.js required by Chrome FCM
+  navigator.serviceWorker.register('/firebase-messaging-sw.js').catch(function(){});
+  navigator.serviceWorker.register('/sw.js').catch(function(){});
 }
 </script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -1437,7 +1438,14 @@ window.registerFCMToken=async function registerFCMToken(){
     if(!fb)return;
     // Firebase compat: firebase.messaging().getToken({vapidKey})
     var messaging=firebase.messaging();
-    var token=await messaging.getToken({vapidKey:FCM_VAPID});
+    // Register service worker first
+    var swReg=null;
+    try{
+      swReg=await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    }catch(e){}
+    var tokenOpts={vapidKey:FCM_VAPID};
+    if(swReg)tokenOpts.serviceWorkerRegistration=swReg;
+    var token=await messaging.getToken(tokenOpts);
     if(!token)return;
     var uid=window.__currentUser?window.__currentUser.uid:null;
     var docId=uid?"user_"+uid+"_fcm":token.slice(0,20);
