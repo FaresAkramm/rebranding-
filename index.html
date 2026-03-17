@@ -1494,35 +1494,32 @@ window.sendPushToAll=async function sendPushToAll(title,body,accId){
 window.listenToNotifications=function(){
   try{
     var fb=window.__fb;if(!fb)return;
-    if(window.__notifListenerActive)return;
-    window.__notifListenerActive=true;
-    // Use current time minus 5 seconds as baseline
-    var lastCheck=new Date(Date.now()-5000).toISOString();
-    // Simple collection listener - no query ordering needed
-    fb.onSnapshot(
+    // Unsubscribe previous listener if exists
+    if(window.__notifUnsub){
+      try{window.__notifUnsub();}catch(e){}
+    }
+    // Baseline: ignore notifications older than app open time
+    var appOpenTime=new Date(Date.now()-2000).toISOString();
+    window.__notifUnsub=fb.onSnapshot(
       fb.collection(fb.db,"notifications"),
       function(snap){
         snap.docChanges().forEach(function(change){
           if(change.type!=="added")return;
           var n=change.doc.data();
-          if(!n.createdAt||n.createdAt<=lastCheck)return;
-          // Show toast for ALL users
+          if(!n.createdAt||n.createdAt<appOpenTime)return;
+          // Show in-app toast
           if(typeof window.__showToast==="function"){
             window.__showToast("🔔 "+n.title);
           }
-          // Show system notification if permission granted
+          // Show system notification
           if(Notification.permission==="granted"&&typeof window.showLocalNotif==="function"){
             window.showLocalNotif(n.title,n.body||"");
           }
         });
       },
-      function(err){
-        window.__notifListenerActive=false;
-      }
+      function(err){ window.__notifUnsub=null; }
     );
-  }catch(e){
-    window.__notifListenerActive=false;
-  }
+  }catch(e){}
 };
 
 window.saveUnansweredToFB=async function saveUnansweredToFB(q,accName,accId){
