@@ -1582,33 +1582,6 @@ window.registerFCMToken=async function registerFCMToken(){
   }catch(e){}
 }
 
-window.sendPushToAll=async function sendPushToAll(title,body,accId){
-  try{
-    var fb=window.__fb;if(!fb)return;
-    // 1. Write to Firestore — listenToNotifications will pick this up
-    var id="notif_"+Date.now();
-    await firebase.firestore().collection("notifications").doc(id).set({
-      id:id,title:title,body:body||"",
-      accId:accId||null,
-      createdAt:new Date().toISOString(),
-      read:false
-    });
-    // 2. Try Vercel FCM push (works even when app closed)
-    fetch("https://rebranding-bottt.vercel.app/api/notify",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({title:title,body:body||"",accId:accId||null})
-    }).catch(function(){});
-    // 3. Telegram
-    var tgMsg="\uD83D\uDD14 "+title+"\n"+(body||"")+"\n\n\uD83D\uDCF1 Rebranding Data Mod";
-    fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:TG_ADMIN_ID,text:tgMsg})}).catch(function(){});
-    if(fb){
-      fb.getDocs(fb.collection(fb.db,"telegram_subscribers")).then(function(snap){
-        snap.docs.forEach(function(d){var s=d.data();if(s.chatId&&s.chatId!==String(TG_ADMIN_ID)){fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:s.chatId,text:tgMsg})}).catch(function(){});}});
-      }).catch(function(){});
-    }
-  }catch(e){}
-}
 
 // استمع للـ notifications — exposed on window so Babel can call it
 window.listenToNotifications=function(){
@@ -1633,10 +1606,7 @@ window.listenToNotifications=function(){
           if(typeof window.__showToast==="function"){
             window.__showToast("🔔 "+n.title);
           }
-          // Show system notification
-          if("Notification" in window&&Notification.permission==="granted"&&typeof window.showLocalNotif==="function"){
-            window.showLocalNotif(n.title,n.body||"");
-          }
+          // FCM handles system notifications - only show in-app toast here
         });
       },
       function(err){}
