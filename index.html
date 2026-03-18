@@ -69,6 +69,49 @@ if('serviceWorker' in navigator){
   window.__fbReady=true;
   window.dispatchEvent(new Event("fbReady"));
 </script>
+<script>
+window.registerFCMToken=async function registerFCMToken(){
+  try{
+    if(!("Notification" in window)){console.log("FCM: not supported");return;}
+    if(Notification.permission==="default"){
+      var p=await Notification.requestPermission();
+      if(p!=="granted"){console.log("FCM: permission denied");return;}
+    }
+    if(Notification.permission!=="granted"){console.log("FCM: no permission");return;}
+    var fb=window.__fb;if(!fb)return;
+    var messaging=null;
+    try{messaging=firebase.messaging();}catch(e){console.log("FCM: messaging err",e.message);}
+    if(!messaging)return;
+    var swReg=null;
+    try{swReg=await navigator.serviceWorker.ready;}catch(e){console.log("FCM: SW err",e.message);}
+    var tokenOpts={vapidKey:"BMmV9tGXzzR5lR2FCElcgw46cvvi4v3d03cSqMr7RH2tBvBa7EgAJrNyRtcKks0I9fLUY_vzOeQwDKdXvLOAXhQ"};
+    if(swReg)tokenOpts.serviceWorkerRegistration=swReg;
+    console.log("FCM: getting token...");
+    var token=await messaging.getToken(tokenOpts);
+    if(!token){console.log("FCM: no token");return;}
+    console.log("FCM: got token",token.slice(0,20));
+    var uid=window.__currentUser?window.__currentUser.uid:null;
+    var docId=uid?"user_"+uid+"_fcm":token.slice(0,20);
+    await fb.setDoc(fb.doc(fb.db,"fcm_tokens",docId),{
+      token:token,
+      uid:uid||null,
+      email:window.__currentUser?window.__currentUser.email||"":null,
+      updatedAt:new Date().toISOString(),
+      platform:navigator.userAgent.includes("Mobile")?"mobile":"desktop"
+    });
+    console.log("FCM: token saved to Firestore");
+    if(!window.__fcmListenerActive){
+      window.__fcmListenerActive=true;
+      messaging.onMessage(function(payload){
+        var title=(payload.notification||{}).title;
+        var body=(payload.notification||{}).body||"";
+        if(title&&typeof window.showLocalNotif==="function")window.showLocalNotif(title,body);
+      });
+    }
+    return token;
+  }catch(e){console.error("FCM error:",e.message);}
+}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Work+Sans:wght@300;400;500;600;700&family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
@@ -1432,47 +1475,6 @@ window.showLocalNotif=function showLocalNotif(title,body,icon){
 // ══ FCM Push Notifications ══
 const FCM_VAPID = "BMmV9tGXzzR5lR2FCElcgw46cvvi4v3d03cSqMr7RH2tBvBa7EgAJrNyRtcKks0I9fLUY_vzOeQwDKdXvLOAXhQ";
 
-window.registerFCMToken=async function registerFCMToken(){
-  try{
-    if(!("Notification" in window)){console.log("FCM: not supported");return;}
-    if(Notification.permission==="default"){
-      var p=await Notification.requestPermission();
-      if(p!=="granted"){console.log("FCM: permission denied");return;}
-    }
-    if(Notification.permission!=="granted"){console.log("FCM: no permission");return;}
-    var fb=window.__fb;if(!fb)return;
-    var messaging=null;
-    try{messaging=firebase.messaging();}catch(e){console.log("FCM: messaging err",e.message);}
-    if(!messaging)return;
-    var swReg=null;
-    try{swReg=await navigator.serviceWorker.ready;}catch(e){console.log("FCM: SW err",e.message);}
-    var tokenOpts={vapidKey:FCM_VAPID};
-    if(swReg)tokenOpts.serviceWorkerRegistration=swReg;
-    console.log("FCM: getting token...");
-    var token=await messaging.getToken(tokenOpts);
-    if(!token){console.log("FCM: no token");return;}
-    console.log("FCM: got token",token.slice(0,20));
-    var uid=window.__currentUser?window.__currentUser.uid:null;
-    var docId=uid?"user_"+uid+"_fcm":token.slice(0,20);
-    await fb.setDoc(fb.doc(fb.db,"fcm_tokens",docId),{
-      token:token,
-      uid:uid||null,
-      email:window.__currentUser?window.__currentUser.email||"":null,
-      updatedAt:new Date().toISOString(),
-      platform:navigator.userAgent.includes("Mobile")?"mobile":"desktop"
-    });
-    console.log("FCM: token saved to Firestore");
-    if(!window.__fcmListenerActive){
-      window.__fcmListenerActive=true;
-      messaging.onMessage(function(payload){
-        var title=(payload.notification||{}).title;
-        var body=(payload.notification||{}).body||"";
-        if(title&&typeof window.showLocalNotif==="function")window.showLocalNotif(title,body);
-      });
-    }
-    return token;
-  }catch(e){console.error("FCM error:",e.message);}
-}
 
 window.sendPushToAll=async function sendPushToAll(title,body,accId){
   try{
