@@ -38,8 +38,10 @@ if('serviceWorker' in navigator){
   firebase.initializeApp({apiKey:"AIzaSyDyw9pT5tkE6Jz8_aamc1oK8NZk69R3sBo",authDomain:"rebranding-data-mod-56340.firebaseapp.com",projectId:"rebranding-data-mod-56340",storageBucket:"rebranding-data-mod-56340.firebasestorage.app",messagingSenderId:"696496503983",appId:"1:696496503983:web:144e09ee144d518fa2e85a"});
   var _db=firebase.firestore();
   var _auth=firebase.auth();
-  var _messaging=firebase.messaging();
   var _gp=new firebase.auth.GoogleAuthProvider();
+  // messaging() can throw if SW not ready - wrap in try/catch
+  var _messaging=null;
+  try{_messaging=firebase.messaging();}catch(e){}
   window.__fb={
     db:_db,
     // Firestore methods
@@ -1437,7 +1439,9 @@ window.registerFCMToken=async function registerFCMToken(){
     var fb=window.__fb;
     if(!fb)return;
     // Firebase compat: firebase.messaging().getToken({vapidKey})
-    var messaging=firebase.messaging();
+    var messaging=null;
+    try{messaging=firebase.messaging();}catch(e){}
+    if(!messaging)return;
     // Register service worker first
     var swReg=null;
     try{
@@ -1475,7 +1479,7 @@ window.sendPushToAll=async function sendPushToAll(title,body,accId){
     var fb=window.__fb;if(!fb)return;
     // 1. Write to Firestore — listenToNotifications will pick this up
     var id="notif_"+Date.now();
-    await fb.setDoc(fb.doc(fb.db,"notifications",id),{
+    await firebase.firestore().collection("notifications").doc(id).set({
       id:id,title:title,body:body||"",
       accId:accId||null,
       createdAt:new Date().toISOString(),
@@ -1501,15 +1505,17 @@ window.sendPushToAll=async function sendPushToAll(title,body,accId){
 // استمع للـ notifications — exposed on window so Babel can call it
 window.listenToNotifications=function(){
   try{
-    var fb=window.__fb;if(!fb)return;
+    var fb=window.__fb;
+    if(!fb||!fb.db){return;}
     // Unsubscribe previous listener if exists
     if(window.__notifUnsub){
       try{window.__notifUnsub();}catch(e){}
+      window.__notifUnsub=null;
     }
     // Baseline: ignore notifications older than app open time
     var appOpenTime=new Date(Date.now()-2000).toISOString();
-    window.__notifUnsub=fb.onSnapshot(
-      fb.collection(fb.db,"notifications"),
+    var colRef=firebase.firestore().collection("notifications");
+    window.__notifUnsub=colRef.onSnapshot(
       function(snap){
         snap.docChanges().forEach(function(change){
           if(change.type!=="added")return;
@@ -1520,12 +1526,12 @@ window.listenToNotifications=function(){
             window.__showToast("🔔 "+n.title);
           }
           // Show system notification
-          if(Notification.permission==="granted"&&typeof window.showLocalNotif==="function"){
+          if("Notification" in window&&Notification.permission==="granted"&&typeof window.showLocalNotif==="function"){
             window.showLocalNotif(n.title,n.body||"");
           }
         });
       },
-      function(err){ window.__notifUnsub=null; }
+      function(err){}
     );
   }catch(e){}
 };
