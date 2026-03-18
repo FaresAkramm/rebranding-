@@ -21,9 +21,9 @@ if('serviceWorker' in navigator){
       keys.forEach(function(k){ caches.delete(k); });
     });
   }
-  // Register both SWs - firebase-messaging-sw.js required by Chrome FCM
+  // ✅ سجّل firebase-messaging-sw.js بس — هو اللي FCM بيحتاجه
+  // sw.js كان نسخة طبق الأصل منه وبيسبب تعارض
   navigator.serviceWorker.register('/firebase-messaging-sw.js').catch(function(){});
-  navigator.serviceWorker.register('/sw.js').catch(function(){});
 }
 </script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -3602,17 +3602,19 @@ function App(){
   const[installPrompt,setInstallPrompt]=useState(null);
   const[showUpdateBanner,setShowUpdateBanner]=useState(false);
   const[waInput,setWaInput]=useState("");
-  // Init notifications بعد ما Firebase يتجهز
+  // ✅ Init notifications — بننتظر الـ SW يكون جاهز فعلاً
   React.useEffect(()=>{
     if(!fbOk)return;
-    // Always start notification listener for in-app toasts
-    setTimeout(function(){
-      if(typeof window.listenToNotifications==="function")window.listenToNotifications();
-      // FCM token only if permission granted
-      if("Notification" in window&&Notification.permission==="granted"){
-        if(typeof window.registerFCMToken==="function")window.registerFCMToken();
+    // دايماً اشتغّل الـ Firestore listener للـ in-app toasts
+    if(typeof window.listenToNotifications==="function")window.listenToNotifications();
+    // FCM token بس لو permission granted، وبننتظر SW ready
+    if("Notification" in window&&Notification.permission==="granted"){
+      if("serviceWorker" in navigator){
+        navigator.serviceWorker.ready.then(function(){
+          if(typeof window.registerFCMToken==="function")window.registerFCMToken();
+        }).catch(function(e){console.error("SW ready error:",e);});
       }
-    },300);
+    }
   },[fbOk]);
 
   // اطلب notification permission بعد login
@@ -3621,7 +3623,12 @@ function App(){
     if(!("Notification" in window))return;
     if(Notification.permission==="granted"){
       if(window.listenToNotifications)window.listenToNotifications();
-      if(typeof window.registerFCMToken==="function")typeof window.registerFCMToken==="function"&&window.registerFCMToken();
+      // ✅ انتظر SW ready قبل registerFCMToken
+      if("serviceWorker" in navigator){
+        navigator.serviceWorker.ready.then(function(){
+          if(typeof window.registerFCMToken==="function")window.registerFCMToken();
+        }).catch(function(){});
+      }
       return;
     }
     if(Notification.permission==="default"){
@@ -3674,8 +3681,15 @@ function App(){
           // Redirect to pub if on login/landing page
           setView(function(prev){return prev==="login"||prev==="landing"?"pub":prev;});
         }
+        // ✅ مش بنحفظ doc هنا بدون token — registerFCMToken() هي اللي بتعمل ده صح
         // FCM token
-        if(Notification.permission==="granted")typeof window.registerFCMToken==="function"&&window.registerFCMToken();
+        if(Notification.permission==="granted"){
+          if("serviceWorker" in navigator){
+            navigator.serviceWorker.ready.then(function(){
+              if(typeof window.registerFCMToken==="function")window.registerFCMToken();
+            }).catch(function(){});
+          }
+        }
         // load user data from Firestore
         fb.getDoc(fb.doc(fb.db,"user_data",u.uid)).then(function(d){
           if(d.exists()){
@@ -3684,16 +3698,7 @@ function App(){
               setFavorites(data.favs);
               try{localStorage.setItem("rb_favs",JSON.stringify(data.favs));}catch(e){}
             }
-            // whatsapp saved in profile now, no popup
-          } else {
-            // new user - no WA popup, user sets it in profile
           }
-        }).catch(function(){});
-        // register FCM token linked to user
-        fb.setDoc(fb.doc(fb.db,"fcm_tokens",u.uid+"_web"),{
-          uid:u.uid,email:u.email||"",displayName:u.displayName||"",
-          platform:navigator.userAgent.includes("Mobile")?"mobile":"desktop",
-          updatedAt:new Date().toISOString()
         }).catch(function(){});
       }
     });
@@ -4633,10 +4638,7 @@ updateOnline();
   document.addEventListener('touchmove',function(e){if(!isPulling)return;if(e.touches[0].clientY-startY>30&&ptr)ptr.classList.add('visible')},{passive:true});
   document.addEventListener('touchend',function(e){if(!isPulling)return;isPulling=false;var diff=e.changedTouches[0].clientY-startY;if(ptr)ptr.classList.remove('visible');if(diff>80)window.location.reload();},{passive:true});
 })();
-// Service Worker
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js').catch(function(){});
-}
+// ✅ SW registration moved to <head> — لا تكرار هنا
 </script>
 </body>
 </html>
