@@ -439,6 +439,8 @@ window.WA_NUMBER="201277188784";// WhatsApp number for error alerts
 const FCM_VAPID_KEY = "BMmV9tGXzzR5lR2FCElcgw46cvvi4v3d03cSqMr7RH2tBvBa7EgAJrNyRtcKks0I9fLUY_vzOeQwDKdXvLOAXhQ";
 
 window.registerFCMToken = async function() {
+  if (window.__fcmRegistering) return;
+  window.__fcmRegistering = true;
   try {
     if (!("Notification" in window)) return;
     if (Notification.permission === "default") {
@@ -475,8 +477,9 @@ window.registerFCMToken = async function() {
         if (title && window.showLocalNotif) window.showLocalNotif(title, body);
       });
     }
+    window.__fcmRegistering = false;
     return token;
-  } catch(e) { console.error("FCM error:", e.message); }
+  } catch(e) { console.error("FCM error:", e.message); window.__fcmRegistering = false; }
 };
 
 window.sendPushToAll = async function(title, body, accId) {
@@ -3182,6 +3185,10 @@ function TaqseemPanel({accs}){
         updatedAt:new Date().toISOString()
       });
       setSaved(true);
+      // ✅ بعت إشعار لكل الناس إن التقسيمة نزلت
+      if(typeof window.sendPushToAll==="function"){
+        window.sendPushToAll("📋 تقسيمتك نزلت!","افتح التطبيق وشوف أكونتاتك النهارده 🚀");
+      }
     }catch(e){msg("❌ "+e.message);}
     setSaving(false);
   }
