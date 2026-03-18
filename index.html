@@ -432,6 +432,330 @@ window.WA_NUMBER="201277188784";// WhatsApp number for error alerts
 })();
 </script>
 
+<script>
+window.logActivity=async function logActivity(type,label,detail){
+  try{
+    var fb=window.__fb;if(!fb)return;
+    var id="act_"+Date.now();
+    await fb.setDoc(fb.doc(fb.db,"activity_log",id),{
+      id:id,type:type,label:label,detail:detail||"",
+      createdAt:new Date().toISOString()
+    });
+  }catch(e){}
+}
+
+window.parseAndExecAction=async function parseAndExecAction(actionStr,accs,offs,onDone){
+  try{
+    var parsed=JSON.parse(actionStr);
+    var fb=window.__fb;
+    var t=parsed.type;
+    if(t==="add_offer"){
+      var acc=accs.find(function(a){return a.id===parsed.accountId;});
+      if(!acc){onDone(false,"مش لاقي الأكونت");return;}
+      var id="off_"+Date.now();
+      await fb.setDoc(fb.doc(fb.db,"offers",id),{
+        id:id,accountId:parsed.accountId,title:parsed.title||"",
+        description:parsed.description||"",content:parsed.content||"",
+        image:"",link:"",expiryDate:parsed.expiryDate||"",
+        badge:parsed.badge||"جديد",updatedAt:new Date().toISOString()
+      });
+      onDone(true,"✅ تم إضافة العرض: "+parsed.title+" لـ "+acc.name);typeof window.logActivity==="function"&&window.logActivity("add_offer","إضافة عرض: "+parsed.title,"الأكونت: "+acc.name);
+    }
+    else if(t==="edit_offer"){
+      var off=offs.find(function(o){return o.id===parsed.offerId;});
+      if(!off){onDone(false,"مش لاقي العرض");return;}
+      await fb.setDoc(fb.doc(fb.db,"offers",off.id),Object.assign({},off,parsed.changes||{},{ updatedAt:new Date().toISOString()}));
+      onDone(true,"✅ تم تعديل العرض: "+off.title);typeof window.logActivity==="function"&&window.logActivity("edit_offer","تعديل عرض: "+off.title,"");
+    }
+    else if(t==="delete_offer"){
+      var off2=offs.find(function(o){return o.id===parsed.offerId;});
+      await fb.deleteDoc(fb.doc(fb.db,"offers",parsed.offerId));
+      onDone(true,"🗑️ تم حذف العرض: "+(off2?off2.title:parsed.offerId));typeof window.logActivity==="function"&&window.logActivity("delete_offer","حذف عرض: "+(off2?off2.title:""),"");
+    }
+    else if(t==="edit_account"){
+      var acc2=accs.find(function(a){return a.id===parsed.accountId;});
+      if(!acc2){onDone(false,"مش لاقي الأكونت");return;}
+      await fb.setDoc(fb.doc(fb.db,"accounts",acc2.id),Object.assign({},acc2,parsed.changes||{},{ updatedAt:new Date().toISOString()}));
+      onDone(true,"✅ تم تعديل بيانات "+acc2.name);typeof window.logActivity==="function"&&window.logActivity("edit_account","تعديل أكونت: "+acc2.name,JSON.stringify(parsed.changes||{}).slice(0,80));
+    }
+    else if(t==="add_reply"){
+      var acc3=accs.find(function(a){return a.id===parsed.accountId;});
+      if(!acc3){onDone(false,"مش لاقي الأكونت");return;}
+      var replies=(acc3.extraReplies||[]).concat([{label:parsed.label||"رد جديد",text:parsed.text||""}]);
+      await fb.setDoc(fb.doc(fb.db,"accounts",acc3.id),Object.assign({},acc3,{extraReplies:replies,updatedAt:new Date().toISOString()}));
+      onDone(true,"✅ تم إضافة الرد: "+parsed.label+" لـ "+acc3.name);typeof window.logActivity==="function"&&window.logActivity("add_reply","إضافة رد: "+parsed.label,"الأكونت: "+acc3.name);
+    }
+    else if(t==="change_status"){
+      var acc4=accs.find(function(a){return a.id===parsed.accountId;});
+      if(!acc4){onDone(false,"مش لاقي الأكونت");return;}
+      await fb.setDoc(fb.doc(fb.db,"accounts",acc4.id),Object.assign({},acc4,{status:parsed.status,updatedAt:new Date().toISOString()}));
+      onDone(true,"✅ تم تغيير حالة "+acc4.name+" إلى "+parsed.status);
+    }
+    else if(t==="add_info"){
+      var acc5=accs.find(function(a){return a.id===parsed.accountId;});
+      if(!acc5){onDone(false,"مش لاقي الأكونت");return;}
+      var existing5=(acc5.trainedQA||[]);
+      var isDup5=existing5.find(function(x){return x.q&&x.q.trim()===(parsed.question||"").trim();});
+      var newQA5=isDup5
+        ? existing5.map(function(x){return x.q.trim()===parsed.question.trim()?{q:x.q,a:parsed.answer}:x;})
+        : [...existing5,{q:parsed.question,a:parsed.answer}];
+      var updated5=Object.assign({},acc5,{trainedQA:newQA5,updatedAt:new Date().toISOString()});
+      try{await fb.setDoc(fb.doc(fb.db,"accounts",acc5.id),updated5);onDone(true,"✅ تم إضافة المعلومة لـ "+acc5.name);typeof window.logActivity==="function"&&window.logActivity("add_info","إضافة معلومة","الأكونت: "+acc5.name+" | السؤال: "+(parsed.question||"").slice(0,50));}
+      catch(e){onDone(false,"❌ "+e.message);}
+    }
+    else{onDone(false,"أكشن مش معروف: "+t);}
+  }catch(e){onDone(false,"❌ خطأ: "+e.message);}
+}
+
+function QAnswerRow({item,onSave,onDelete,idx}){
+  const[ans,setAns]=useState(item.a||"");
+  const[saving,setSaving]=useState(false);
+  const[done,setDone]=useState(false);
+  async function doSave(){
+    if(!ans.trim())return;
+    setSaving(true);
+    await onSave(item,ans,idx);
+    setDone(true);
+    setSaving(false);
+  }
+  if(done)return <div style={{fontSize:".68rem",color:"#4ade80",fontWeight:700}}>✅ تم الحفظ!</div>;
+  return(
+    <div style={{display:"flex",gap:".3rem"}}>
+      <input
+        placeholder="اكتب الإجابة هنا..."
+        value={ans}
+        onChange={e=>setAns(e.target.value)}
+        onKeyDown={e=>{if(e.key==="Enter")doSave();}}
+        style={{flex:1,background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.1)",color:"var(--text)",borderRadius:4,padding:".28rem .5rem",fontFamily:"Cairo,sans-serif",fontSize:".7rem",direction:"rtl"}}
+      />
+      {ans.trim()&&<button onClick={doSave} disabled={saving} style={{background:"var(--hl)",color:"#0a0a0a",border:"none",borderRadius:4,padding:".28rem .55rem",fontSize:".7rem",fontWeight:700,cursor:"pointer",fontFamily:"Cairo,sans-serif",whiteSpace:"nowrap"}}>{saving?"⏳":"💾"}</button>}
+      <button onClick={()=>onDelete(item)} title="حذف السؤال" style={{background:"rgba(239,68,68,.08)",border:"1px solid rgba(239,68,68,.2)",color:"#f87171",borderRadius:4,padding:".28rem .45rem",fontSize:".75rem",cursor:"pointer"}}>🗑</button>
+    </div>
+  );
+}
+
+function BotWindow({accs,offs,isAdmin,onClose,onSaveQA,onAction}){
+  const WELCOME=isAdmin?"أهلاً أدمن! 👋 تقدر تسألني أو تقولي أعمل أي حاجة — أضف عرض، عدّل بيانات، غير حالة أكونت، وكتير غير كده. قولي بالعربي وهنفذ فوراً ⚡":"أهلاً! 👋 اسألني عن أي أكونت أو عرض وهساعدك في ثانية. لو مش لاقي إجابة، هيوصل سؤالك للأدمن تلقائياً ✨";
+  const SESSION_KEY="bot_session_"+Math.floor(Date.now()/3600000); // changes every hour
+  const[msgs,setMsgs]=useState([{r:"ai",t:WELCOME}]);
+  const[input,setInput]=useState("");
+  const[loading,setLoading]=useState(false);
+  const[unanswered,setUnanswered]=useState([]);
+  const[showQPanel,setShowQPanel]=useState(false);
+  const[savedQ,setSavedQ]=useState([]);
+  const[typing,setTyping]=useState(false);
+  const[ratings,setRatings]=useState({});
+  const[botMode,setBotMode]=useState(null);
+  const[lockedAcc,setLockedAcc]=useState(null);
+  const[wizard,setWizard]=useState(null); // {type:'add_offer'|'add_acc'|'edit_offer'|'delete_offer'|'edit_acc', step:0, data:{}}
+  const msgCountRef=useRef(0);
+  const lastMsgTimeRef=useRef(Date.now());
+  const msgsRef=useRef();
+  const ctx=isAdmin?buildAdminContext(accs,offs):buildContext(accs,offs);
+  useEffect(()=>{if(msgsRef.current)msgsRef.current.scrollTop=msgsRef.current.scrollHeight;},[msgs,typing]);
+
+  // Load session from sessionStorage (per tab, cleared on close)
+  useEffect(()=>{
+    try{
+      var saved=sessionStorage.getItem(SESSION_KEY);
+      if(saved){var parsed=JSON.parse(saved);if(parsed&&parsed.length>1)setMsgs(parsed);}
+    }catch(e){}
+  },[]);
+
+  // Save session on every message
+  useEffect(()=>{
+    if(msgs.length>1){
+      try{sessionStorage.setItem(SESSION_KEY,JSON.stringify(msgs.slice(-20)));}catch(e){}
+    }
+  },[msgs]);
+
+  function detectLang(txt){
+    var arabicChars=(txt.match(/[؀-ۿ]/g)||[]).length;
+    return arabicChars>txt.length*0.3?"ar":"en";
+  }
+  function isDuplicate(txt,history){
+    var recent=history.slice(-6).filter(function(m){return m.r==="user";});
+    return recent.some(function(m){return m.t&&m.t.trim()===txt.trim();});
+  }
+
+  // Load saved unanswered questions from Firebase
+  useEffect(()=>{
+    if(!isAdmin)return;
+    var fb=window.__fb;if(!fb)return;
+    try{
+      var unsub=fb.onSnapshot(fb.collection(fb.db,"unanswered_questions"),function(snap){
+        var items=[];
+        snap.forEach(function(d){items.push(Object.assign({id:d.id},d.data()));});
+        items.sort(function(a,b){return (b.createdAt||"").localeCompare(a.createdAt||"");});
+        setSavedQ(items);
+      });
+      return function(){unsub();};
+    }catch(e){}
+  },[isAdmin]);
+
+  // ══ Push Notifications ══
+window.requestNotifPermission=async function requestNotifPermission(){
+  if(!("Notification" in window))return false;
+  if(Notification.permission==="granted")return true;
+  if(Notification.permission==="denied"){
+    // Guide user to browser settings
+    var isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
+    var isAndroid=/Android/.test(navigator.userAgent);
+    if(isIOS){
+      alert("افتح: الإعدادات ← Safari ← الإشعارات وفعّلها");
+    } else if(isAndroid){
+      alert("افتح: إعدادات الجهاز ← التطبيقات ← المتصفح ← الإشعارات وفعّلها");
+    } else {
+      alert("افتح إعدادات المتصفح وفعّل الإشعارات لهذا الموقع");
+    }
+    return false;
+  }
+  const p=await Notification.requestPermission();
+  return p==="granted";
+}
+
+window.showLocalNotif=function showLocalNotif(title,body,icon){
+  if(!("Notification" in window)||Notification.permission!=="granted")return;
+  try{
+    if(navigator.serviceWorker&&navigator.serviceWorker.controller){
+      navigator.serviceWorker.ready.then(reg=>{
+        reg.showNotification(title,{body,icon:icon||"https://res.cloudinary.com/diepkkeyu/image/upload/v1773517119/404042723_763352762472137_4889753537613967821_n_p3hhjh.jpg",dir:"rtl",lang:"ar",vibrate:[200,100,200]});
+      });
+    } else {
+      new Notification(title,{body,icon:icon||"https://res.cloudinary.com/diepkkeyu/image/upload/v1773517119/404042723_763352762472137_4889753537613967821_n_p3hhjh.jpg"});
+    }
+  }catch(e){}
+}
+
+// ══ FCM Push Notifications ══
+const FCM_VAPID = "BMmV9tGXzzR5lR2FCElcgw46cvvi4v3d03cSqMr7RH2tBvBa7EgAJrNyRtcKks0I9fLUY_vzOeQwDKdXvLOAXhQ";
+
+window.registerFCMToken=async function registerFCMToken(){
+  try{
+    if(!("Notification" in window)){console.log("FCM: not supported");return;}
+    if(Notification.permission==="default"){
+      var p=await Notification.requestPermission();
+      if(p!=="granted"){console.log("FCM: permission denied");return;}
+    }
+    if(Notification.permission!=="granted"){console.log("FCM: no permission");return;}
+    var fb=window.__fb;if(!fb)return;
+    var messaging=null;
+    try{messaging=firebase.messaging();}catch(e){console.log("FCM: messaging err",e.message);}
+    if(!messaging)return;
+    var swReg=null;
+    try{swReg=await navigator.serviceWorker.ready;}catch(e){console.log("FCM: SW err",e.message);}
+    var tokenOpts={vapidKey:FCM_VAPID};
+    if(swReg)tokenOpts.serviceWorkerRegistration=swReg;
+    console.log("FCM: getting token...");
+    var token=await messaging.getToken(tokenOpts);
+    if(!token){console.log("FCM: no token");return;}
+    console.log("FCM: got token",token.slice(0,20));
+    var uid=window.__currentUser?window.__currentUser.uid:null;
+    var docId=uid?"user_"+uid+"_fcm":token.slice(0,20);
+    await fb.setDoc(fb.doc(fb.db,"fcm_tokens",docId),{
+      token:token,
+      uid:uid||null,
+      email:window.__currentUser?window.__currentUser.email||"":null,
+      updatedAt:new Date().toISOString(),
+      platform:navigator.userAgent.includes("Mobile")?"mobile":"desktop"
+    });
+    console.log("FCM: token saved to Firestore");
+    if(!window.__fcmListenerActive){
+      window.__fcmListenerActive=true;
+      messaging.onMessage(function(payload){
+        var title=(payload.notification||{}).title;
+        var body=(payload.notification||{}).body||"";
+        if(title&&typeof window.showLocalNotif==="function")window.showLocalNotif(title,body);
+      });
+    }
+    return token;
+  }catch(e){console.error("FCM error:",e.message);}
+}
+
+window.sendPushToAll=async function sendPushToAll(title,body,accId){
+  try{
+    var fb=window.__fb;if(!fb)return;
+    // 1. Write to Firestore — listenToNotifications will pick this up
+    var id="notif_"+Date.now();
+    await firebase.firestore().collection("notifications").doc(id).set({
+      id:id,title:title,body:body||"",
+      accId:accId||null,
+      createdAt:new Date().toISOString(),
+      read:false
+    });
+    // 2. Try Vercel FCM push (works even when app closed)
+    fetch("https://rebranding-bottt.vercel.app/api/notify",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({title:title,body:body||"",accId:accId||null})
+    }).catch(function(){});
+    // 3. Telegram
+    var tgMsg="\uD83D\uDD14 "+title+"\n"+(body||"")+"\n\n\uD83D\uDCF1 Rebranding Data Mod";
+    fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:TG_ADMIN_ID,text:tgMsg})}).catch(function(){});
+    if(fb){
+      fb.getDocs(fb.collection(fb.db,"telegram_subscribers")).then(function(snap){
+        snap.docs.forEach(function(d){var s=d.data();if(s.chatId&&s.chatId!==String(TG_ADMIN_ID)){fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:s.chatId,text:tgMsg})}).catch(function(){});}});
+      }).catch(function(){});
+    }
+  }catch(e){}
+}
+
+// استمع للـ notifications — exposed on window so Babel can call it
+window.listenToNotifications=function(){
+  try{
+    var fb=window.__fb;
+    if(!fb||!fb.db){return;}
+    // Unsubscribe previous listener if exists
+    if(window.__notifUnsub){
+      try{window.__notifUnsub();}catch(e){}
+      window.__notifUnsub=null;
+    }
+    // Baseline: ignore notifications older than app open time
+    var appOpenTime=new Date(Date.now()-2000).toISOString();
+    var colRef=firebase.firestore().collection("notifications");
+    window.__notifUnsub=colRef.onSnapshot(
+      function(snap){
+        snap.docChanges().forEach(function(change){
+          if(change.type!=="added")return;
+          var n=change.doc.data();
+          if(!n.createdAt||n.createdAt<appOpenTime)return;
+          // Show in-app toast
+          if(typeof window.__showToast==="function"){
+            window.__showToast("🔔 "+n.title);
+          }
+          // Show system notification
+          if("Notification" in window&&Notification.permission==="granted"&&typeof window.showLocalNotif==="function"){
+            window.showLocalNotif(n.title,n.body||"");
+          }
+        });
+      },
+      function(err){}
+    );
+  }catch(e){}
+};
+
+window.saveUnansweredToFB=async function saveUnansweredToFB(q,accName,accId){
+    try{
+      var fb=window.__fb;if(!fb)return;
+      var id="uq_"+Date.now();
+      await fb.setDoc(fb.doc(fb.db,"unanswered_questions",id),{
+        q:q,accName:accName||"عام",accId:accId||"",a:"",createdAt:new Date().toISOString()
+      });
+      // Notify Admin - Local notification
+      // Show local notif only when user is in admin view
+      if(window.__isAdminView&&window.showLocalNotif){
+        window.showLocalNotif("❓ سؤال جديد!","من: "+(accName||"عام")+" — "+q.slice(0,60));
+      }
+      // Notify Telegram with accId embedded
+      var text="❓ سؤال جديد بدون إجابة\n\nالأكونت: "+(accName||"عام")+"\nالسؤال: "+q+"\n\nارد على الرسالة دي مباشرة وهيتحفظ تلقائي ✅\n[ID:"+id+"][AID:"+(accId||"")+"]";
+      fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({chat_id:TG_ADMIN_ID,text:text})
+      }).catch(function(){});
+    }catch(e){}
+  }
+</script>
 <script type="text/babel">
 const{useState,useEffect,useRef,useMemo,useCallback}=React;
 const ADMIN_DEFAULT="fares2388"; // fallback only
@@ -1232,328 +1556,6 @@ function buildAdminContext(accs,offs){
   return parts.join("\n");
 }
 
-window.logActivity=async function logActivity(type,label,detail){
-  try{
-    var fb=window.__fb;if(!fb)return;
-    var id="act_"+Date.now();
-    await fb.setDoc(fb.doc(fb.db,"activity_log",id),{
-      id:id,type:type,label:label,detail:detail||"",
-      createdAt:new Date().toISOString()
-    });
-  }catch(e){}
-}
-
-window.parseAndExecAction=async function parseAndExecAction(actionStr,accs,offs,onDone){
-  try{
-    var parsed=JSON.parse(actionStr);
-    var fb=window.__fb;
-    var t=parsed.type;
-    if(t==="add_offer"){
-      var acc=accs.find(function(a){return a.id===parsed.accountId;});
-      if(!acc){onDone(false,"مش لاقي الأكونت");return;}
-      var id="off_"+Date.now();
-      await fb.setDoc(fb.doc(fb.db,"offers",id),{
-        id:id,accountId:parsed.accountId,title:parsed.title||"",
-        description:parsed.description||"",content:parsed.content||"",
-        image:"",link:"",expiryDate:parsed.expiryDate||"",
-        badge:parsed.badge||"جديد",updatedAt:new Date().toISOString()
-      });
-      onDone(true,"✅ تم إضافة العرض: "+parsed.title+" لـ "+acc.name);typeof window.logActivity==="function"&&window.logActivity("add_offer","إضافة عرض: "+parsed.title,"الأكونت: "+acc.name);
-    }
-    else if(t==="edit_offer"){
-      var off=offs.find(function(o){return o.id===parsed.offerId;});
-      if(!off){onDone(false,"مش لاقي العرض");return;}
-      await fb.setDoc(fb.doc(fb.db,"offers",off.id),Object.assign({},off,parsed.changes||{},{ updatedAt:new Date().toISOString()}));
-      onDone(true,"✅ تم تعديل العرض: "+off.title);typeof window.logActivity==="function"&&window.logActivity("edit_offer","تعديل عرض: "+off.title,"");
-    }
-    else if(t==="delete_offer"){
-      var off2=offs.find(function(o){return o.id===parsed.offerId;});
-      await fb.deleteDoc(fb.doc(fb.db,"offers",parsed.offerId));
-      onDone(true,"🗑️ تم حذف العرض: "+(off2?off2.title:parsed.offerId));typeof window.logActivity==="function"&&window.logActivity("delete_offer","حذف عرض: "+(off2?off2.title:""),"");
-    }
-    else if(t==="edit_account"){
-      var acc2=accs.find(function(a){return a.id===parsed.accountId;});
-      if(!acc2){onDone(false,"مش لاقي الأكونت");return;}
-      await fb.setDoc(fb.doc(fb.db,"accounts",acc2.id),Object.assign({},acc2,parsed.changes||{},{ updatedAt:new Date().toISOString()}));
-      onDone(true,"✅ تم تعديل بيانات "+acc2.name);typeof window.logActivity==="function"&&window.logActivity("edit_account","تعديل أكونت: "+acc2.name,JSON.stringify(parsed.changes||{}).slice(0,80));
-    }
-    else if(t==="add_reply"){
-      var acc3=accs.find(function(a){return a.id===parsed.accountId;});
-      if(!acc3){onDone(false,"مش لاقي الأكونت");return;}
-      var replies=(acc3.extraReplies||[]).concat([{label:parsed.label||"رد جديد",text:parsed.text||""}]);
-      await fb.setDoc(fb.doc(fb.db,"accounts",acc3.id),Object.assign({},acc3,{extraReplies:replies,updatedAt:new Date().toISOString()}));
-      onDone(true,"✅ تم إضافة الرد: "+parsed.label+" لـ "+acc3.name);typeof window.logActivity==="function"&&window.logActivity("add_reply","إضافة رد: "+parsed.label,"الأكونت: "+acc3.name);
-    }
-    else if(t==="change_status"){
-      var acc4=accs.find(function(a){return a.id===parsed.accountId;});
-      if(!acc4){onDone(false,"مش لاقي الأكونت");return;}
-      await fb.setDoc(fb.doc(fb.db,"accounts",acc4.id),Object.assign({},acc4,{status:parsed.status,updatedAt:new Date().toISOString()}));
-      onDone(true,"✅ تم تغيير حالة "+acc4.name+" إلى "+parsed.status);
-    }
-    else if(t==="add_info"){
-      var acc5=accs.find(function(a){return a.id===parsed.accountId;});
-      if(!acc5){onDone(false,"مش لاقي الأكونت");return;}
-      var existing5=(acc5.trainedQA||[]);
-      var isDup5=existing5.find(function(x){return x.q&&x.q.trim()===(parsed.question||"").trim();});
-      var newQA5=isDup5
-        ? existing5.map(function(x){return x.q.trim()===parsed.question.trim()?{q:x.q,a:parsed.answer}:x;})
-        : [...existing5,{q:parsed.question,a:parsed.answer}];
-      var updated5=Object.assign({},acc5,{trainedQA:newQA5,updatedAt:new Date().toISOString()});
-      try{await fb.setDoc(fb.doc(fb.db,"accounts",acc5.id),updated5);onDone(true,"✅ تم إضافة المعلومة لـ "+acc5.name);typeof window.logActivity==="function"&&window.logActivity("add_info","إضافة معلومة","الأكونت: "+acc5.name+" | السؤال: "+(parsed.question||"").slice(0,50));}
-      catch(e){onDone(false,"❌ "+e.message);}
-    }
-    else{onDone(false,"أكشن مش معروف: "+t);}
-  }catch(e){onDone(false,"❌ خطأ: "+e.message);}
-}
-
-function QAnswerRow({item,onSave,onDelete,idx}){
-  const[ans,setAns]=useState(item.a||"");
-  const[saving,setSaving]=useState(false);
-  const[done,setDone]=useState(false);
-  async function doSave(){
-    if(!ans.trim())return;
-    setSaving(true);
-    await onSave(item,ans,idx);
-    setDone(true);
-    setSaving(false);
-  }
-  if(done)return <div style={{fontSize:".68rem",color:"#4ade80",fontWeight:700}}>✅ تم الحفظ!</div>;
-  return(
-    <div style={{display:"flex",gap:".3rem"}}>
-      <input
-        placeholder="اكتب الإجابة هنا..."
-        value={ans}
-        onChange={e=>setAns(e.target.value)}
-        onKeyDown={e=>{if(e.key==="Enter")doSave();}}
-        style={{flex:1,background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.1)",color:"var(--text)",borderRadius:4,padding:".28rem .5rem",fontFamily:"Cairo,sans-serif",fontSize:".7rem",direction:"rtl"}}
-      />
-      {ans.trim()&&<button onClick={doSave} disabled={saving} style={{background:"var(--hl)",color:"#0a0a0a",border:"none",borderRadius:4,padding:".28rem .55rem",fontSize:".7rem",fontWeight:700,cursor:"pointer",fontFamily:"Cairo,sans-serif",whiteSpace:"nowrap"}}>{saving?"⏳":"💾"}</button>}
-      <button onClick={()=>onDelete(item)} title="حذف السؤال" style={{background:"rgba(239,68,68,.08)",border:"1px solid rgba(239,68,68,.2)",color:"#f87171",borderRadius:4,padding:".28rem .45rem",fontSize:".75rem",cursor:"pointer"}}>🗑</button>
-    </div>
-  );
-}
-
-function BotWindow({accs,offs,isAdmin,onClose,onSaveQA,onAction}){
-  const WELCOME=isAdmin?"أهلاً أدمن! 👋 تقدر تسألني أو تقولي أعمل أي حاجة — أضف عرض، عدّل بيانات، غير حالة أكونت، وكتير غير كده. قولي بالعربي وهنفذ فوراً ⚡":"أهلاً! 👋 اسألني عن أي أكونت أو عرض وهساعدك في ثانية. لو مش لاقي إجابة، هيوصل سؤالك للأدمن تلقائياً ✨";
-  const SESSION_KEY="bot_session_"+Math.floor(Date.now()/3600000); // changes every hour
-  const[msgs,setMsgs]=useState([{r:"ai",t:WELCOME}]);
-  const[input,setInput]=useState("");
-  const[loading,setLoading]=useState(false);
-  const[unanswered,setUnanswered]=useState([]);
-  const[showQPanel,setShowQPanel]=useState(false);
-  const[savedQ,setSavedQ]=useState([]);
-  const[typing,setTyping]=useState(false);
-  const[ratings,setRatings]=useState({});
-  const[botMode,setBotMode]=useState(null);
-  const[lockedAcc,setLockedAcc]=useState(null);
-  const[wizard,setWizard]=useState(null); // {type:'add_offer'|'add_acc'|'edit_offer'|'delete_offer'|'edit_acc', step:0, data:{}}
-  const msgCountRef=useRef(0);
-  const lastMsgTimeRef=useRef(Date.now());
-  const msgsRef=useRef();
-  const ctx=isAdmin?buildAdminContext(accs,offs):buildContext(accs,offs);
-  useEffect(()=>{if(msgsRef.current)msgsRef.current.scrollTop=msgsRef.current.scrollHeight;},[msgs,typing]);
-
-  // Load session from sessionStorage (per tab, cleared on close)
-  useEffect(()=>{
-    try{
-      var saved=sessionStorage.getItem(SESSION_KEY);
-      if(saved){var parsed=JSON.parse(saved);if(parsed&&parsed.length>1)setMsgs(parsed);}
-    }catch(e){}
-  },[]);
-
-  // Save session on every message
-  useEffect(()=>{
-    if(msgs.length>1){
-      try{sessionStorage.setItem(SESSION_KEY,JSON.stringify(msgs.slice(-20)));}catch(e){}
-    }
-  },[msgs]);
-
-  function detectLang(txt){
-    var arabicChars=(txt.match(/[؀-ۿ]/g)||[]).length;
-    return arabicChars>txt.length*0.3?"ar":"en";
-  }
-  function isDuplicate(txt,history){
-    var recent=history.slice(-6).filter(function(m){return m.r==="user";});
-    return recent.some(function(m){return m.t&&m.t.trim()===txt.trim();});
-  }
-
-  // Load saved unanswered questions from Firebase
-  useEffect(()=>{
-    if(!isAdmin)return;
-    var fb=window.__fb;if(!fb)return;
-    try{
-      var unsub=fb.onSnapshot(fb.collection(fb.db,"unanswered_questions"),function(snap){
-        var items=[];
-        snap.forEach(function(d){items.push(Object.assign({id:d.id},d.data()));});
-        items.sort(function(a,b){return (b.createdAt||"").localeCompare(a.createdAt||"");});
-        setSavedQ(items);
-      });
-      return function(){unsub();};
-    }catch(e){}
-  },[isAdmin]);
-
-  // ══ Push Notifications ══
-window.requestNotifPermission=async function requestNotifPermission(){
-  if(!("Notification" in window))return false;
-  if(Notification.permission==="granted")return true;
-  if(Notification.permission==="denied"){
-    // Guide user to browser settings
-    var isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
-    var isAndroid=/Android/.test(navigator.userAgent);
-    if(isIOS){
-      alert("افتح: الإعدادات ← Safari ← الإشعارات وفعّلها");
-    } else if(isAndroid){
-      alert("افتح: إعدادات الجهاز ← التطبيقات ← المتصفح ← الإشعارات وفعّلها");
-    } else {
-      alert("افتح إعدادات المتصفح وفعّل الإشعارات لهذا الموقع");
-    }
-    return false;
-  }
-  const p=await Notification.requestPermission();
-  return p==="granted";
-}
-
-window.showLocalNotif=function showLocalNotif(title,body,icon){
-  if(!("Notification" in window)||Notification.permission!=="granted")return;
-  try{
-    if(navigator.serviceWorker&&navigator.serviceWorker.controller){
-      navigator.serviceWorker.ready.then(reg=>{
-        reg.showNotification(title,{body,icon:icon||"https://res.cloudinary.com/diepkkeyu/image/upload/v1773517119/404042723_763352762472137_4889753537613967821_n_p3hhjh.jpg",dir:"rtl",lang:"ar",vibrate:[200,100,200]});
-      });
-    } else {
-      new Notification(title,{body,icon:icon||"https://res.cloudinary.com/diepkkeyu/image/upload/v1773517119/404042723_763352762472137_4889753537613967821_n_p3hhjh.jpg"});
-    }
-  }catch(e){}
-}
-
-// ══ FCM Push Notifications ══
-const FCM_VAPID = "BMmV9tGXzzR5lR2FCElcgw46cvvi4v3d03cSqMr7RH2tBvBa7EgAJrNyRtcKks0I9fLUY_vzOeQwDKdXvLOAXhQ";
-
-window.registerFCMToken=async function registerFCMToken(){
-  try{
-    if(!("Notification" in window)){console.log("FCM: not supported");return;}
-    if(Notification.permission==="default"){
-      var p=await Notification.requestPermission();
-      if(p!=="granted"){console.log("FCM: permission denied");return;}
-    }
-    if(Notification.permission!=="granted"){console.log("FCM: no permission");return;}
-    var fb=window.__fb;if(!fb)return;
-    var messaging=null;
-    try{messaging=firebase.messaging();}catch(e){console.log("FCM: messaging err",e.message);}
-    if(!messaging)return;
-    var swReg=null;
-    try{swReg=await navigator.serviceWorker.ready;}catch(e){console.log("FCM: SW err",e.message);}
-    var tokenOpts={vapidKey:FCM_VAPID};
-    if(swReg)tokenOpts.serviceWorkerRegistration=swReg;
-    console.log("FCM: getting token...");
-    var token=await messaging.getToken(tokenOpts);
-    if(!token){console.log("FCM: no token");return;}
-    console.log("FCM: got token",token.slice(0,20));
-    var uid=window.__currentUser?window.__currentUser.uid:null;
-    var docId=uid?"user_"+uid+"_fcm":token.slice(0,20);
-    await fb.setDoc(fb.doc(fb.db,"fcm_tokens",docId),{
-      token:token,
-      uid:uid||null,
-      email:window.__currentUser?window.__currentUser.email||"":null,
-      updatedAt:new Date().toISOString(),
-      platform:navigator.userAgent.includes("Mobile")?"mobile":"desktop"
-    });
-    console.log("FCM: token saved to Firestore");
-    if(!window.__fcmListenerActive){
-      window.__fcmListenerActive=true;
-      messaging.onMessage(function(payload){
-        var title=(payload.notification||{}).title;
-        var body=(payload.notification||{}).body||"";
-        if(title&&typeof window.showLocalNotif==="function")window.showLocalNotif(title,body);
-      });
-    }
-    return token;
-  }catch(e){console.error("FCM error:",e.message);}
-}
-
-window.sendPushToAll=async function sendPushToAll(title,body,accId){
-  try{
-    var fb=window.__fb;if(!fb)return;
-    // 1. Write to Firestore — listenToNotifications will pick this up
-    var id="notif_"+Date.now();
-    await firebase.firestore().collection("notifications").doc(id).set({
-      id:id,title:title,body:body||"",
-      accId:accId||null,
-      createdAt:new Date().toISOString(),
-      read:false
-    });
-    // 2. Try Vercel FCM push (works even when app closed)
-    fetch("https://rebranding-bottt.vercel.app/api/notify",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({title:title,body:body||"",accId:accId||null})
-    }).catch(function(){});
-    // 3. Telegram
-    var tgMsg="\uD83D\uDD14 "+title+"\n"+(body||"")+"\n\n\uD83D\uDCF1 Rebranding Data Mod";
-    fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:TG_ADMIN_ID,text:tgMsg})}).catch(function(){});
-    if(fb){
-      fb.getDocs(fb.collection(fb.db,"telegram_subscribers")).then(function(snap){
-        snap.docs.forEach(function(d){var s=d.data();if(s.chatId&&s.chatId!==String(TG_ADMIN_ID)){fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chat_id:s.chatId,text:tgMsg})}).catch(function(){});}});
-      }).catch(function(){});
-    }
-  }catch(e){}
-}
-
-// استمع للـ notifications — exposed on window so Babel can call it
-window.listenToNotifications=function(){
-  try{
-    var fb=window.__fb;
-    if(!fb||!fb.db){return;}
-    // Unsubscribe previous listener if exists
-    if(window.__notifUnsub){
-      try{window.__notifUnsub();}catch(e){}
-      window.__notifUnsub=null;
-    }
-    // Baseline: ignore notifications older than app open time
-    var appOpenTime=new Date(Date.now()-2000).toISOString();
-    var colRef=firebase.firestore().collection("notifications");
-    window.__notifUnsub=colRef.onSnapshot(
-      function(snap){
-        snap.docChanges().forEach(function(change){
-          if(change.type!=="added")return;
-          var n=change.doc.data();
-          if(!n.createdAt||n.createdAt<appOpenTime)return;
-          // Show in-app toast
-          if(typeof window.__showToast==="function"){
-            window.__showToast("🔔 "+n.title);
-          }
-          // Show system notification
-          if("Notification" in window&&Notification.permission==="granted"&&typeof window.showLocalNotif==="function"){
-            window.showLocalNotif(n.title,n.body||"");
-          }
-        });
-      },
-      function(err){}
-    );
-  }catch(e){}
-};
-
-window.saveUnansweredToFB=async function saveUnansweredToFB(q,accName,accId){
-    try{
-      var fb=window.__fb;if(!fb)return;
-      var id="uq_"+Date.now();
-      await fb.setDoc(fb.doc(fb.db,"unanswered_questions",id),{
-        q:q,accName:accName||"عام",accId:accId||"",a:"",createdAt:new Date().toISOString()
-      });
-      // Notify Admin - Local notification
-      // Show local notif only when user is in admin view
-      if(window.__isAdminView&&window.showLocalNotif){
-        window.showLocalNotif("❓ سؤال جديد!","من: "+(accName||"عام")+" — "+q.slice(0,60));
-      }
-      // Notify Telegram with accId embedded
-      var text="❓ سؤال جديد بدون إجابة\n\nالأكونت: "+(accName||"عام")+"\nالسؤال: "+q+"\n\nارد على الرسالة دي مباشرة وهيتحفظ تلقائي ✅\n[ID:"+id+"][AID:"+(accId||"")+"]";
-      fetch("https://api.telegram.org/bot"+TG_BOT_TOKEN+"/sendMessage",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({chat_id:TG_ADMIN_ID,text:text})
-      }).catch(function(){});
-    }catch(e){}
-  }
 
   async function deleteQ(item){
     var fb=window.__fb;
